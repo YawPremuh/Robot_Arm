@@ -57,8 +57,27 @@ def build_pose(point: List[float], z_override: Optional[float] = None) -> List[f
     return [x, y, z, ORIENTATION_RPY[0], ORIENTATION_RPY[1], ORIENTATION_RPY[2]]
 
 
-def send_position(arm: XArmAPI, pose: List[float], speed: float = MOVE_SPEED, mvacc: float = MOVE_ACCEL) -> None:
-    result = arm.set_position(pose, speed=speed, mvacc=mvacc, wait=True)
+def send_position(
+    arm: XArmAPI,
+    pose: List[float],
+    speed: float = MOVE_SPEED,
+    mvacc: float = MOVE_ACCEL
+) -> None:
+
+    print(f"Sending pose: {pose}")
+
+    result = arm.set_position(
+        x=pose[0],
+        y=pose[1],
+        z=pose[2],
+        roll=pose[3],
+        pitch=pose[4],
+        yaw=pose[5],
+        speed=speed,
+        mvacc=mvacc,
+        wait=True
+    )
+
     if isinstance(result, (list, tuple)):
         if result[0] != 0:
             raise RuntimeError(f"xArm move failed: {result}")
@@ -73,6 +92,22 @@ def move_gripper(arm: XArmAPI, position: int) -> None:
             raise RuntimeError(f"Gripper move failed: {result}")
     elif result != 0:
         raise RuntimeError(f"Gripper move failed: {result}")
+
+
+def set_joint_angles(arm: XArmAPI, angles: List[float], speed: float = 50) -> None:
+    """Set joint angles (degrees). Tries common SDK signatures."""
+    try:
+        result = arm.set_servo_angle(angle=angles, speed=speed, is_radian=False, wait=True)
+    except TypeError:
+        try:
+            result = arm.set_servo_angle(angles, wait=True)
+        except Exception as exc:  # fallback
+            raise RuntimeError(f"Failed to set servo angles: {exc}")
+    if isinstance(result, (list, tuple)):
+        if result[0] != 0:
+            raise RuntimeError(f"Set joint angles failed: {result}")
+    elif result != 0:
+        raise RuntimeError(f"Set joint angles failed: {result}")
 
 
 def main() -> None:
@@ -100,7 +135,7 @@ def main() -> None:
 
     print("Moving to safe above weigh boat...")
     send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], weigh_boat[2]]))
 
     print("Closing gripper on weigh boat...")
     move_gripper(arm, gripper_pick)
@@ -111,7 +146,7 @@ def main() -> None:
 
     print("Transiting to safe above destination...")
     send_position(arm, build_pose([destination[0], destination[1], safe_z]))
-    send_position(arm, build_pose([destination[0], destination[1], place_z]))
+    send_position(arm, build_pose([destination[0], destination[1], destination[2]]))
 
     print("Releasing weigh boat at destination...")
     move_gripper(arm, gripper_release)
@@ -121,8 +156,50 @@ def main() -> None:
     send_position(arm, build_pose([destination[0], destination[1], safe_z]))
     send_position(arm, build_pose(initial))
 
+    # brief pause at start pose before re-picking for pour
+    print("Pausing at start pose...")
+    time.sleep(2.0)
+
+    # Prepare for pick-up in pour orientation (use provided joint angles)
+    pour_joints = [-76.5, 29.0, -32.0, 283.7, 93.9, 175.0]
+    reactor = [384.9, 175.4, 731.8]
+
+    print("Setting pour orientation and moving to scale to re-pick weigh boat...")
+    set_joint_angles(arm, pour_joints)
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
+
+    print("Closing gripper to secure weigh boat for pour...")
+    move_gripper(arm, gripper_pick)
+    time.sleep(0.5)
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
+
+    # Move to reactor and perform a tilt to pour
+    reactor_safe_z = reactor[2] + 50.0
+    print("Moving to reactor and performing pour motion...")
+    send_position(arm, build_pose([reactor[0], reactor[1], reactor_safe_z]))
+
+    # Tilt wrist (joint 4) to pour and perform a small oscillation
+    tilted = pour_joints.copy()
+    tilted[3] = tilted[3] + 40.0
+    set_joint_angles(arm, tilted)
+    time.sleep(0.6)
+    for delta in (8.0, -8.0, 8.0):
+        tilted[3] += delta
+        set_joint_angles(arm, tilted)
+        time.sleep(0.25)
+
+    # Return orientation and bring weigh boat back to start
+    set_joint_angles(arm, pour_joints)
+    time.sleep(0.4)
+
+    print("Returning weigh boat to start position and releasing...")
+    send_position(arm, build_pose(initial))
+    move_gripper(arm, gripper_release)
+    time.sleep(0.5)
+
     arm.disconnect()
-    print("Completed move from initial position to destination.")
+    print("Completed full pick, pour, return sequence.")
 
 
 if __name__ == "__main__":
