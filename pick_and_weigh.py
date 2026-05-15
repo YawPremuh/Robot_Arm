@@ -101,6 +101,9 @@ def main() -> None:
     destination = positions["weigh_boat_destination"]  # type: ignore[assignment]
     gripper_pick = int(positions.get("gripper_pick", GRIP_CLOSE))
     gripper_release = int(positions.get("gripper_release", GRIP_OPEN))
+    regrasp_grip_pos = positions.get("regrasp_grip_pos")
+    regrasp_rpy = positions.get("regrasp_rpy")
+    regrasp_joints = positions.get("regrasp_joints")
 
     table_clearance = 150.0
     safe_z = max(initial[2], weigh_boat[2] + table_clearance, destination[2] + table_clearance, 220.0)
@@ -161,30 +164,51 @@ def main() -> None:
     offset = 80.0
     # approach_offset: start offset from the weigh boat along +X direction
     # Use an incremental, waypoint-based transit to avoid kinematic singularities
-    def safe_cartesian_transit(target_xyz, fast_speed=60, slow_speed=40, fast_mvacc=120, slow_mvacc=80):
+    def safe_cartesian_transit(target_xyz, rpy_override=None, fast_speed=60, slow_speed=40, fast_mvacc=120, slow_mvacc=80):
         tx, ty, tz = target_xyz
         # midpoint between current (initial) and target at safe_z
         mid = [(initial[0] + tx) / 2.0, (initial[1] + ty) / 2.0, safe_z]
         try:
-            send_position(arm, build_pose(mid), speed=fast_speed, mvacc=fast_mvacc)
-            send_position(arm, build_pose([tx, ty, safe_z]), speed=fast_speed, mvacc=fast_mvacc)
+            if rpy_override is None:
+                send_position(arm, build_pose(mid), speed=fast_speed, mvacc=fast_mvacc)
+                send_position(arm, build_pose([tx, ty, safe_z]), speed=fast_speed, mvacc=fast_mvacc)
+            else:
+                send_position(arm, [mid[0], mid[1], mid[2], rpy_override[0], rpy_override[1], rpy_override[2]], speed=fast_speed, mvacc=fast_mvacc)
+                send_position(arm, [tx, ty, safe_z, rpy_override[0], rpy_override[1], rpy_override[2]], speed=fast_speed, mvacc=fast_mvacc)
         except Exception as e:
             print(f"Primary transit failed: {e}. Falling back to finer steps.")
             # try finer-grained interpolation
             for t in (0.25, 0.5, 0.75, 1.0):
                 ix = initial[0] + (tx - initial[0]) * t
                 iy = initial[1] + (ty - initial[1]) * t
-                send_position(arm, build_pose([ix, iy, safe_z]), speed=slow_speed, mvacc=slow_mvacc)
+                if rpy_override is None:
+                    send_position(arm, build_pose([ix, iy, safe_z]), speed=slow_speed, mvacc=slow_mvacc)
+                else:
+                    send_position(arm, [ix, iy, safe_z, rpy_override[0], rpy_override[1], rpy_override[2]], speed=slow_speed, mvacc=slow_mvacc)
         # finally lower to requested tz
-        send_position(arm, build_pose([tx, ty, tz]), speed=slow_speed, mvacc=slow_mvacc)
+        if rpy_override is None:
+            send_position(arm, build_pose([tx, ty, tz]), speed=slow_speed, mvacc=slow_mvacc)
+        else:
+            send_position(arm, [tx, ty, tz, rpy_override[0], rpy_override[1], rpy_override[2]], speed=slow_speed, mvacc=slow_mvacc)
 
-    approach_target = [weigh_boat[0] + offset, weigh_boat[1], pickup_z]
+    # choose regrasp target: prefer explicit regrasp_grip_pos if provided
+    target_grip = None
+    if regrasp_grip_pos:
+        target_grip = regrasp_grip_pos
+    else:
+        target_grip = [weigh_boat[0], weigh_boat[1], pickup_z]
+
+    approach_target = [target_grip[0] + offset, target_grip[1], target_grip[2]]
     print("Moving to approach offset away from weigh boat with safe transit...")
-    safe_cartesian_transit(approach_target)
+    # pass rpy_override if provided
+    safe_cartesian_transit(approach_target, rpy_override=regrasp_rpy)
 
-    # Now translate along X to the exact weigh boat XY while at pickup_z
+    # Now translate along X to the exact weigh boat XY while at pickup_z (or target z)
     print("Translating along X to weigh boat exact XY at pickup height...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]), speed=40, mvacc=80)
+    if regrasp_rpy is None:
+        send_position(arm, build_pose([target_grip[0], target_grip[1], target_grip[2]]), speed=40, mvacc=80)
+    else:
+        send_position(arm, [target_grip[0], target_grip[1], target_grip[2], regrasp_rpy[0], regrasp_rpy[1], regrasp_rpy[2]], speed=40, mvacc=80)
 
     print("Grasping weigh boat for transfer to reactor...")
     move_gripper(arm, gripper_pick)
@@ -232,25 +256,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-'''i just changed the position of the scale so now the new 
-
-
-
-```python
-
-weigh_boat_destination: [-403.2, -323.5, 86]
-
-```
-
-
-
-and now the now griping position after weighing powder is:
-
-[-406.4, -334.3, 92.1]
-
-roll 50.4 degrees, pitch: -85.1 degrees, yaw: -50.9 degrees
-
-j1: -113.1, j2: 34.1, j3: -46.5, j4: 111.8, j5: 88.4, j6: 165.2
-'''
-
-
