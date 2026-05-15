@@ -151,17 +151,11 @@ def main() -> None:
             # If set_servo_angle isn't available, ignore and continue with cartesian moves
             print("Joint move not supported on this SDK; skipping joint orientation step.")
 
-    # Regrasp joint orientation provided by user
-    regrasp_joints = [-76.5, 29.0, -32.0, 283.7, 93.9, 175.0]
-    regrasp_cartesian = [-201.5, -277.0, 88.3]
-
-    # Move to a safe height before reorienting
-    print("Moving up for safe reorientation...")
+    # Skipping joint reorientation per user request; use current orientation.
+    # Move to a safe height before regrasping without changing orientation.
+    print("Moving up for safe reorientation (no orientation change)...")
     send_position(arm, build_pose([initial[0], initial[1], safe_z]))
-
-    print("Setting regrasp joint orientation...")
-    move_joints_safe(arm, regrasp_joints)
-    time.sleep(0.8)
+    time.sleep(0.2)
 
     # Approach the weigh boat from the regrasp orientation but stay offset in X to avoid the scale
     offset = 80.0
@@ -238,5 +232,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
