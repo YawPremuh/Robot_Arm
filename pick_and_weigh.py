@@ -166,14 +166,31 @@ def main() -> None:
     # Approach the weigh boat from the regrasp orientation but stay offset in X to avoid the scale
     offset = 80.0
     # approach_offset: start offset from the weigh boat along +X direction
-    approach_offset_point = [weigh_boat[0] + offset, weigh_boat[1], safe_z]
-    print("Moving to approach offset away from weigh boat...")
-    send_position(arm, build_pose(approach_offset_point))
+    # Use an incremental, waypoint-based transit to avoid kinematic singularities
+    def safe_cartesian_transit(target_xyz, fast_speed=60, slow_speed=40, fast_mvacc=120, slow_mvacc=80):
+        tx, ty, tz = target_xyz
+        # midpoint between current (initial) and target at safe_z
+        mid = [(initial[0] + tx) / 2.0, (initial[1] + ty) / 2.0, safe_z]
+        try:
+            send_position(arm, build_pose(mid), speed=fast_speed, mvacc=fast_mvacc)
+            send_position(arm, build_pose([tx, ty, safe_z]), speed=fast_speed, mvacc=fast_mvacc)
+        except Exception as e:
+            print(f"Primary transit failed: {e}. Falling back to finer steps.")
+            # try finer-grained interpolation
+            for t in (0.25, 0.5, 0.75, 1.0):
+                ix = initial[0] + (tx - initial[0]) * t
+                iy = initial[1] + (ty - initial[1]) * t
+                send_position(arm, build_pose([ix, iy, safe_z]), speed=slow_speed, mvacc=slow_mvacc)
+        # finally lower to requested tz
+        send_position(arm, build_pose([tx, ty, tz]), speed=slow_speed, mvacc=slow_mvacc)
 
-    # Now move along X to the exact weigh boat XY while still at safe_z, then lower
-    print("Translating along X to weigh boat then lowering...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
+    approach_target = [weigh_boat[0] + offset, weigh_boat[1], pickup_z]
+    print("Moving to approach offset away from weigh boat with safe transit...")
+    safe_cartesian_transit(approach_target)
+
+    # Now translate along X to the exact weigh boat XY while at pickup_z
+    print("Translating along X to weigh boat exact XY at pickup height...")
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]), speed=40, mvacc=80)
 
     print("Grasping weigh boat for transfer to reactor...")
     move_gripper(arm, gripper_pick)
@@ -223,22 +240,3 @@ if __name__ == "__main__":
     main()
 
 
-'''error message: Returning to initial pose briefly before regrasp...
-Sending pose: [-195.5, -269.4, 301.5, 0.0, 180.0, 0.0]
-Sending pose: [-64.8, -245.5, 301.5, 0.0, 180.0, 0.0]
-Moving up for safe reorientation...
-Sending pose: [-64.8, -245.5, 301.5, 0.0, 180.0, 0.0]
-Setting regrasp joint orientation...
-Joint move not supported on this SDK; skipping joint orientation step.
-Moving to approach offset away from weigh boat...
-Sending pose: [359.7, -555.5, 301.5, 0.0, 180.0, 0.0]
-[SDK][ERROR][2026-05-16 00:02:29][base.py:380] - - wait_feedback, xarm is stop, state=4
-Traceback (most recent call last):
-File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 223, in <module>
-main()
-File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 171, in main
-send_position(arm, build_pose(approach_offset_point))
-File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 85, in send_position
-raise RuntimeError(f"xArm move failed: {result}")
-RuntimeError: xArm move failed: -9
-[Program exit with code 1]'''
