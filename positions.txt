@@ -1,6 +1,9 @@
 initial_position: [-64.8, -245.5, 301.5]
 weigh_boat_position: [279.7, -555.5, 10.5]
 weigh_boat_destination: [-195.5, -269.4, 84.8]
+scale_pick_position: [-201.5, -277.0, 88.3]
+reactor_position: [384.9, 175.4, 731.8]
+pour_orientation: [0.0, 150.0, 45.0]
 powder_position: [190.8, -322.4, 93.3]
 gripper_pick: 200
 gripper_release: 250
