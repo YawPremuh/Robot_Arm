@@ -1,0 +1,7 @@
+initial_position: [-64.8, -245.5, 301.5]
+weigh_boat_position: [279.7, -555.5, 10.5]
+weigh_boat_destination: [-195.5, -269.4, 84.8]
+powder_position: [190.8, -322.4, 93.3]
+gripper_pick: 200
+gripper_release: 250
+weigh_boat_weight: 17.63
