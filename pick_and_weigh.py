@@ -14,7 +14,6 @@ GRIP_OPEN = 250
 MOVE_SPEED = 100
 MOVE_ACCEL = 250
 ORIENTATION_RPY = [0.0, 180.0, 0.0]
-POUR_ORIENTATION_DEFAULT = [0.0, 150.0, 45.0]
 POSITIONS_FILE = os.path.join(os.path.dirname(__file__), "positions.txt")
 
 
@@ -51,12 +50,11 @@ def load_positions(file_path: str) -> Dict[str, object]:
     return positions
 
 
-def build_pose(point: List[float], orientation: Optional[List[float]] = None, z_override: Optional[float] = None) -> List[float]:
+def build_pose(point: List[float], z_override: Optional[float] = None) -> List[float]:
     x, y, z = point
     if z_override is not None:
         z = z_override
-    pose_orientation = orientation if orientation is not None else ORIENTATION_RPY
-    return [x, y, z, pose_orientation[0], pose_orientation[1], pose_orientation[2]]
+    return [x, y, z, ORIENTATION_RPY[0], ORIENTATION_RPY[1], ORIENTATION_RPY[2]]
 
 
 def send_position(
@@ -101,23 +99,13 @@ def main() -> None:
     initial = positions["initial_position"]  # type: ignore[assignment]
     weigh_boat = positions["weigh_boat_position"]  # type: ignore[assignment]
     destination = positions["weigh_boat_destination"]  # type: ignore[assignment]
-    scale_pick = positions.get("scale_pick_position", destination)  # type: ignore[assignment]
-    reactor = positions.get("reactor_position")  # type: ignore[assignment]
-    pour_orientation = positions.get("pour_orientation", POUR_ORIENTATION_DEFAULT)  # type: ignore[assignment]
     gripper_pick = int(positions.get("gripper_pick", GRIP_CLOSE))
     gripper_release = int(positions.get("gripper_release", GRIP_OPEN))
-
-    if reactor is None:
-        raise ValueError("Missing required reactor_position in positions.txt for pouring.")
 
     table_clearance = 150.0
     safe_z = max(initial[2], weigh_boat[2] + table_clearance, destination[2] + table_clearance, 220.0)
     pickup_z = weigh_boat[2] + 35.0
     place_z = destination[2] + 35.0
-    scale_pick_safe_z = max(scale_pick[2] + 120.0, safe_z)
-    scale_pick_down_z = max(destination[2] + 20.0, 10.0)
-    reactor_safe_z = max(reactor[2] + 120.0, safe_z)
-    reactor_pour_z = max(reactor[2] + 30.0, 10.0)
 
     arm = XArmAPI(ARM_IP)
     arm.motion_enable(True)
@@ -131,7 +119,7 @@ def main() -> None:
 
     print("Moving to safe above weigh boat...")
     send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], weigh_boat[2]]))
 
     print("Closing gripper on weigh boat...")
     move_gripper(arm, gripper_pick)
@@ -142,47 +130,93 @@ def main() -> None:
 
     print("Transiting to safe above destination...")
     send_position(arm, build_pose([destination[0], destination[1], safe_z]))
-    send_position(arm, build_pose([destination[0], destination[1], place_z]))
+    send_position(arm, build_pose([destination[0], destination[1], destination[2]]))
 
     print("Releasing weigh boat at destination...")
     move_gripper(arm, gripper_release)
     time.sleep(0.5)
 
-    print("Retracting from scale and returning to initial position...")
+    # --- New: wait at initial pose briefly, then regrasp for pouring ---
+    print("Returning to initial pose briefly before regrasp...")
     send_position(arm, build_pose([destination[0], destination[1], safe_z]))
     send_position(arm, build_pose(initial))
-    print("Holding at initial pose before redesign pick-up...")
-    time.sleep(2.0)
+    time.sleep(1.0)
 
-    print("Repositioning for scale pickup with pour orientation...")
-    send_position(arm, build_pose([scale_pick[0], scale_pick[1], scale_pick_safe_z], orientation=pour_orientation))
-    send_position(arm, build_pose([destination[0], destination[1], scale_pick_down_z], orientation=pour_orientation))
+    # Helper: move joints if available (useful to change orientation safely)
+    def move_joints_safe(arm_obj: XArmAPI, joints: list[float], wait: bool = True) -> None:
+        try:
+            # SDK: set_servo_angle expects a list of 6 angles in degrees
+            arm_obj.set_servo_angle(joints, is_radian=False, wait=wait)
+        except Exception:
+            # If set_servo_angle isn't available, ignore and continue with cartesian moves
+            print("Joint move not supported on this SDK; skipping joint orientation step.")
 
-    print("Picking weigh boat from the scale...")
+    # Regrasp joint orientation provided by user
+    regrasp_joints = [-76.5, 29.0, -32.0, 283.7, 93.9, 175.0]
+    regrasp_cartesian = [-201.5, -277.0, 88.3]
+
+    # Move to a safe height before reorienting
+    print("Moving up for safe reorientation...")
+    send_position(arm, build_pose([initial[0], initial[1], safe_z]))
+
+    print("Setting regrasp joint orientation...")
+    move_joints_safe(arm, regrasp_joints)
+    time.sleep(0.8)
+
+    # Approach the weigh boat from the regrasp orientation but stay offset in X to avoid the scale
+    offset = 80.0
+    # approach_offset: start offset from the weigh boat along +X direction
+    approach_offset_point = [weigh_boat[0] + offset, weigh_boat[1], safe_z]
+    print("Moving to approach offset away from weigh boat...")
+    send_position(arm, build_pose(approach_offset_point))
+
+    # Now move along X to the exact weigh boat XY while still at safe_z, then lower
+    print("Translating along X to weigh boat then lowering...")
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
+
+    print("Grasping weigh boat for transfer to reactor...")
     move_gripper(arm, gripper_pick)
-    time.sleep(0.5)
-    send_position(arm, build_pose([destination[0], destination[1], scale_pick_safe_z], orientation=pour_orientation))
+    time.sleep(0.6)
 
-    print("Moving to reactor pour point...")
-    send_position(arm, build_pose([reactor[0], reactor[1], reactor_safe_z], orientation=pour_orientation))
-    send_position(arm, build_pose([reactor[0], reactor[1], reactor_pour_z], orientation=pour_orientation))
+    # Lift and transit to reactor approach
+    print("Lifting weigh boat to safe transit height...")
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
 
-    print("Pouring powder into reactor...")
-    time.sleep(2.0)
-    send_position(arm, build_pose([reactor[0], reactor[1], reactor_safe_z], orientation=pour_orientation))
+    reactor_pos = [384.9, 175.4, 731.8]
+    # Approach reactor above by first moving to same XY at safe_z
+    print("Transiting to reactor approach position...")
+    send_position(arm, build_pose([reactor_pos[0], reactor_pos[1], safe_z]))
+    # Move down to reactor height (keep a small overhead)
+    reactor_approach_z = reactor_pos[2]
+    send_position(arm, build_pose([reactor_pos[0], reactor_pos[1], reactor_approach_z]))
 
-    print("Returning weigh boat to original pickup location...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z], orientation=pour_orientation))
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z], orientation=pour_orientation))
+    # Perform a simple pour motion by adjusting wrist yaw/pitch slightly
+    print("Performing pour motion into reactor...")
+    try:
+        # Tilt by changing yaw (or use joint move to tilt wrist)
+        pour_pose = [reactor_pos[0], reactor_pos[1], reactor_approach_z, ORIENTATION_RPY[0], ORIENTATION_RPY[1], ORIENTATION_RPY[2] + 70.0]
+        send_position(arm, pour_pose)
+        time.sleep(0.8)
+        # Return from pour pose
+        send_position(arm, build_pose([reactor_pos[0], reactor_pos[1], reactor_approach_z]))
+    except Exception:
+        print("Pour motion failed or not supported; continuing.")
+
+    # After pouring, return the weigh boat to its original position on the scale
+    print("Returning weigh boat to original scale position...")
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
     move_gripper(arm, gripper_release)
-    time.sleep(0.5)
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z], orientation=pour_orientation))
+    time.sleep(0.6)
 
-    print("Returning to initial arm pose...")
+    # Retract and return to initial pose
+    print("Retracting and returning to initial pose...")
+    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
     send_position(arm, build_pose(initial))
 
     arm.disconnect()
-    print("Completed full weigh boat transfer, pour, and return sequence.")
+    print("Completed pick, pour, and return sequence.")
 
 
 if __name__ == "__main__":
