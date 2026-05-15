@@ -232,6 +232,25 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+'''i just changed the position of the scale so now the new 
 
+
+
+```python
+
+weigh_boat_destination: [-403.2, -323.5, 86]
+
+```
+
+
+
+and now the now griping position after weighing powder is:
+
+[-406.4, -334.3, 92.1]
+
+roll 50.4 degrees, pitch: -85.1 degrees, yaw: -50.9 degrees
+
+j1: -113.1, j2: 34.1, j3: -46.5, j4: 111.8, j5: 88.4, j6: 165.2
+'''
 
 
