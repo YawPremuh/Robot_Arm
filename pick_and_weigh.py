@@ -223,3 +223,22 @@ if __name__ == "__main__":
     main()
 
 
+'''error message: Returning to initial pose briefly before regrasp...
+Sending pose: [-195.5, -269.4, 301.5, 0.0, 180.0, 0.0]
+Sending pose: [-64.8, -245.5, 301.5, 0.0, 180.0, 0.0]
+Moving up for safe reorientation...
+Sending pose: [-64.8, -245.5, 301.5, 0.0, 180.0, 0.0]
+Setting regrasp joint orientation...
+Joint move not supported on this SDK; skipping joint orientation step.
+Moving to approach offset away from weigh boat...
+Sending pose: [359.7, -555.5, 301.5, 0.0, 180.0, 0.0]
+[SDK][ERROR][2026-05-16 00:02:29][base.py:380] - - wait_feedback, xarm is stop, state=4
+Traceback (most recent call last):
+File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 223, in <module>
+main()
+File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 171, in main
+send_position(arm, build_pose(approach_offset_point))
+File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 85, in send_position
+raise RuntimeError(f"xArm move failed: {result}")
+RuntimeError: xArm move failed: -9
+[Program exit with code 1]'''
