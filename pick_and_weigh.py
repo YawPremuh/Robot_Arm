@@ -10,7 +10,7 @@ except ImportError:
 
 ARM_IP = "192.168.1.206"
 GRIP_CLOSE = 200
-GRIP_OPEN = 250
+GRIP_OPEN = 300
 MOVE_SPEED = 100
 MOVE_ACCEL = 250
 ORIENTATION_RPY = [0.0, 180.0, 0.0]
@@ -192,7 +192,7 @@ def main() -> None:
             send_position(arm, [tx, ty, tz, rpy_override[0], rpy_override[1], rpy_override[2]], speed=slow_speed, mvacc=slow_mvacc)
 
     # choose regrasp target: prefer explicit regrasp_grip_pos if provided
-    target_grip = None
+    target_grip = [-406.4, -334.3, 92.1]
     if regrasp_grip_pos:
         target_grip = regrasp_grip_pos
     else:
