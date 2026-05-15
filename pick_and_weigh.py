@@ -143,7 +143,7 @@ def main() -> None:
     time.sleep(1.0)
 
     # Helper: move joints if available (useful to change orientation safely)
-    def move_joints_safe(arm_obj: XArmAPI, joints: list[float], wait: bool = True) -> None:
+    def move_joints_safe(arm_obj: XArmAPI, joints: List[float], wait: bool = True) -> None:
         try:
             # SDK: set_servo_angle expects a list of 6 angles in degrees
             arm_obj.set_servo_angle(joints, is_radian=False, wait=wait)
@@ -221,18 +221,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-''' error message: Transiting to safe above destination...
-Sending pose: [-195.5, -269.4, 301.5, 0.0, 180.0, 0.0]
-Sending pose: [-195.5, -269.4, 84.8, 0.0, 180.0, 0.0]
-Releasing weigh boat at destination...
-Returning to initial pose briefly before regrasp...
-Sending pose: [-195.5, -269.4, 301.5, 0.0, 180.0, 0.0]
-Sending pose: [-64.8, -245.5, 301.5, 0.0, 180.0, 0.0]
-Traceback (most recent call last):
-File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 223, in <module>
-main()
-File "/home/uf/.UFACTORY/projects/test/xarm6/python/Powder_route/pick_and_weigh.py", line 146, in main
-def move_joints_safe(arm_obj: XArmAPI, joints: list[float], wait: bool = True) -> None:
-TypeError: 'type' object is not subscriptable
-[Program exit with code 1]
-'''
+
+
