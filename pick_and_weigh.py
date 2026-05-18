@@ -1,257 +1,312 @@
-import os
-import re
 import time
-from typing import Dict, List, Optional
 
 try:
     from xarm.wrapper import XArmAPI
 except ImportError:
     from xarm import XArmAPI
 
+
+# =========================================================
+# CONFIG
+# =========================================================
+
 ARM_IP = "192.168.1.206"
-GRIP_CLOSE = 200
-GRIP_OPEN = 300
-MOVE_SPEED = 100
-MOVE_ACCEL = 250
-ORIENTATION_RPY = [0.0, 180.0, 0.0]
-POSITIONS_FILE = os.path.join(os.path.dirname(__file__), "positions.txt")
+
+MOVE_SPEED = 80
+MOVE_ACCEL = 200
+
+SAFE_Z = 250
+
+DEFAULT_RPY = [0.0, 180.0, 0.0]
+POUR_RPY = [0.0, 150.0, 45.0]
+
+# =========================================================
+# POSITIONS
+# =========================================================
+
+INITIAL_POS = [-64.8, -245.5, 301.5]
+
+WEIGH_BOAT_POS = [279.7, -555.5, 10.5]
+WEIGH_BOAT_DEST = [-195.5, -269.4, 84.8]
+
+SCALE_PICK_POS = [-201.5, -277.0, 88.3]
+
+REACTOR_POS = [384.9, 175.4, 731.8]
+
+POWDER_POS = [190.8, -322.4, 93.3]
+
+SCOOP_INITIAL = [-42.0, -246.5, 94.9]
+
+# =========================================================
+# GRIPPER VALUES
+# =========================================================
+
+GRIPPER_PICK_WEIGHBOAT = 200
+GRIPPER_RELEASE_WEIGHBOAT = 250
+
+GRIPPER_PICK_SCOOP = 725
+GRIPPER_OPEN_SCOOP = 500
+GRIPPER_RELEASE_SCOOP = 850
+
+# =========================================================
+# ARM SETUP
+# =========================================================
+
+arm = XArmAPI(ARM_IP)
+
+arm.motion_enable(True)
+arm.set_mode(0)
+arm.set_state(0)
+
+time.sleep(1)
 
 
-def parse_vector(line: str) -> Optional[List[float]]:
-    if "[" not in line or "]" not in line:
-        return None
-    numbers = re.findall(r"-?\d+(?:\.\d+)?", line)
-    if len(numbers) < 3:
-        return None
-    return [float(numbers[0]), float(numbers[1]), float(numbers[2])]
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
 
+def move_pose(x, y, z, rpy=DEFAULT_RPY,
+              speed=MOVE_SPEED,
+              accel=MOVE_ACCEL):
 
-def load_positions(file_path: str) -> Dict[str, object]:
-    positions: Dict[str, object] = {}
-    with open(file_path, "r", encoding="utf-8") as fp:
-        for raw_line in fp:
-            if ":" not in raw_line:
-                continue
-            key, value = raw_line.split(":", 1)
-            key = key.strip().lower()
-            value = value.strip()
-            if not key:
-                continue
-            vector = parse_vector(value)
-            if vector is not None:
-                positions[key] = vector
-                continue
-            scalar_match = re.search(r"-?\d+(?:\.\d+)?", value)
-            if scalar_match:
-                positions[key] = float(scalar_match.group())
-    missing = [name for name in ("initial_position", "weigh_boat_position", "weigh_boat_destination") if name not in positions]
-    if missing:
-        raise ValueError(f"Missing required positions in {file_path}: {missing}")
-    return positions
+    print(f"Moving to: {[x, y, z]}")
 
-
-def build_pose(point: List[float], z_override: Optional[float] = None) -> List[float]:
-    x, y, z = point
-    if z_override is not None:
-        z = z_override
-    return [x, y, z, ORIENTATION_RPY[0], ORIENTATION_RPY[1], ORIENTATION_RPY[2]]
-
-
-def send_position(
-    arm: XArmAPI,
-    pose: List[float],
-    speed: float = MOVE_SPEED,
-    mvacc: float = MOVE_ACCEL
-) -> None:
-
-    print(f"Sending pose: {pose}")
-
-    result = arm.set_position(
-        x=pose[0],
-        y=pose[1],
-        z=pose[2],
-        roll=pose[3],
-        pitch=pose[4],
-        yaw=pose[5],
+    code = arm.set_position(
+        x=x,
+        y=y,
+        z=z,
+        roll=rpy[0],
+        pitch=rpy[1],
+        yaw=rpy[2],
         speed=speed,
-        mvacc=mvacc,
+        mvacc=accel,
         wait=True
     )
 
-    if isinstance(result, (list, tuple)):
-        if result[0] != 0:
-            raise RuntimeError(f"xArm move failed: {result}")
-    elif result != 0:
-        raise RuntimeError(f"xArm move failed: {result}")
+    if isinstance(code, (list, tuple)):
+        code = code[0]
+
+    if code != 0:
+        raise RuntimeError(f"Move failed: {code}")
 
 
-def move_gripper(arm: XArmAPI, position: int) -> None:
-    result = arm.set_gripper_position(position, wait=True)
-    if isinstance(result, (list, tuple)):
-        if result[0] != 0:
-            raise RuntimeError(f"Gripper move failed: {result}")
-    elif result != 0:
-        raise RuntimeError(f"Gripper move failed: {result}")
+def move_above(position, offset=SAFE_Z):
+    move_pose(position[0], position[1], offset)
 
 
-def main() -> None:
-    positions = load_positions(POSITIONS_FILE)
-    initial = positions["initial_position"]  # type: ignore[assignment]
-    weigh_boat = positions["weigh_boat_position"]  # type: ignore[assignment]
-    destination = positions["weigh_boat_destination"]  # type: ignore[assignment]
-    gripper_pick = int(positions.get("gripper_pick", GRIP_CLOSE))
-    gripper_release = int(positions.get("gripper_release", GRIP_OPEN))
-    regrasp_grip_pos = positions.get("regrasp_grip_pos")
-    regrasp_rpy = positions.get("regrasp_rpy")
-    regrasp_joints = positions.get("regrasp_joints")
+def descend(position, rpy=DEFAULT_RPY):
+    move_pose(position[0], position[1], position[2], rpy=rpy)
 
-    table_clearance = 150.0
-    safe_z = max(initial[2], weigh_boat[2] + table_clearance, destination[2] + table_clearance, 220.0)
-    pickup_z = weigh_boat[2] + 35.0
-    place_z = destination[2] + 35.0
 
-    arm = XArmAPI(ARM_IP)
-    arm.motion_enable(True)
-    arm.set_mode(0)
-    arm.set_state(0)
-    time.sleep(1.0)
+def retract(position):
+    move_pose(position[0], position[1], SAFE_Z)
 
-    print("Opening gripper and moving to initial pose...")
-    move_gripper(arm, GRIP_OPEN)
-    send_position(arm, build_pose(initial))
 
-    print("Moving to safe above weigh boat...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], weigh_boat[2]]))
+def gripper(position):
+    print(f"Gripper -> {position}")
 
-    print("Closing gripper on weigh boat...")
-    move_gripper(arm, gripper_pick)
+    code = arm.set_gripper_position(position, wait=True)
+
+    if isinstance(code, (list, tuple)):
+        code = code[0]
+
+    if code != 0:
+        raise RuntimeError(f"Gripper failed: {code}")
+
     time.sleep(0.5)
 
-    print("Lifting weigh boat to safe transit height...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
 
-    print("Transiting to safe above destination...")
-    send_position(arm, build_pose([destination[0], destination[1], safe_z]))
-    send_position(arm, build_pose([destination[0], destination[1], destination[2]]))
+# =========================================================
+# SCOOP FUNCTIONS
+# =========================================================
 
-    print("Releasing weigh boat at destination...")
-    move_gripper(arm, gripper_release)
-    time.sleep(0.5)
+def pick_scoop():
 
-    # --- New: wait at initial pose briefly, then regrasp for pouring ---
-    print("Returning to initial pose briefly before regrasp...")
-    send_position(arm, build_pose([destination[0], destination[1], safe_z]))
-    send_position(arm, build_pose(initial))
-    time.sleep(1.0)
+    print("\n=== PICKING SCOOP ===")
 
-    # Helper: move joints if available (useful to change orientation safely)
-    def move_joints_safe(arm_obj: XArmAPI, joints: List[float], wait: bool = True) -> None:
-        try:
-            # SDK: set_servo_angle expects a list of 6 angles in degrees
-            arm_obj.set_servo_angle(joints, is_radian=False, wait=wait)
-        except Exception:
-            # If set_servo_angle isn't available, ignore and continue with cartesian moves
-            print("Joint move not supported on this SDK; skipping joint orientation step.")
+    gripper(GRIPPER_OPEN_SCOOP)
 
-    # Skipping joint reorientation per user request; use current orientation.
-    # Move to a safe height before regrasping without changing orientation.
-    print("Moving up for safe reorientation (no orientation change)...")
-    send_position(arm, build_pose([initial[0], initial[1], safe_z]))
-    time.sleep(0.2)
+    move_above(SCOOP_INITIAL)
 
-    # Approach the weigh boat from the regrasp orientation but stay offset in X to avoid the scale
-    offset = 80.0
-    # approach_offset: start offset from the weigh boat along +X direction
-    # Use an incremental, waypoint-based transit to avoid kinematic singularities
-    def safe_cartesian_transit(target_xyz, rpy_override=None, fast_speed=60, slow_speed=40, fast_mvacc=120, slow_mvacc=80):
-        tx, ty, tz = target_xyz
-        # midpoint between current (initial) and target at safe_z
-        mid = [(initial[0] + tx) / 2.0, (initial[1] + ty) / 2.0, safe_z]
-        try:
-            if rpy_override is None:
-                send_position(arm, build_pose(mid), speed=fast_speed, mvacc=fast_mvacc)
-                send_position(arm, build_pose([tx, ty, safe_z]), speed=fast_speed, mvacc=fast_mvacc)
-            else:
-                send_position(arm, [mid[0], mid[1], mid[2], rpy_override[0], rpy_override[1], rpy_override[2]], speed=fast_speed, mvacc=fast_mvacc)
-                send_position(arm, [tx, ty, safe_z, rpy_override[0], rpy_override[1], rpy_override[2]], speed=fast_speed, mvacc=fast_mvacc)
-        except Exception as e:
-            print(f"Primary transit failed: {e}. Falling back to finer steps.")
-            # try finer-grained interpolation
-            for t in (0.25, 0.5, 0.75, 1.0):
-                ix = initial[0] + (tx - initial[0]) * t
-                iy = initial[1] + (ty - initial[1]) * t
-                if rpy_override is None:
-                    send_position(arm, build_pose([ix, iy, safe_z]), speed=slow_speed, mvacc=slow_mvacc)
-                else:
-                    send_position(arm, [ix, iy, safe_z, rpy_override[0], rpy_override[1], rpy_override[2]], speed=slow_speed, mvacc=slow_mvacc)
-        # finally lower to requested tz
-        if rpy_override is None:
-            send_position(arm, build_pose([tx, ty, tz]), speed=slow_speed, mvacc=slow_mvacc)
-        else:
-            send_position(arm, [tx, ty, tz, rpy_override[0], rpy_override[1], rpy_override[2]], speed=slow_speed, mvacc=slow_mvacc)
+    descend(SCOOP_INITIAL)
 
-    # choose regrasp target: prefer explicit regrasp_grip_pos if provided
-    target_grip = [-406.4, -334.3, 92.1]
-    if regrasp_grip_pos:
-        target_grip = regrasp_grip_pos
-    else:
-        target_grip = [weigh_boat[0], weigh_boat[1], pickup_z]
+    gripper(GRIPPER_PICK_SCOOP)
 
-    approach_target = [target_grip[0] + offset, target_grip[1], target_grip[2]]
-    print("Moving to approach offset away from weigh boat with safe transit...")
-    # pass rpy_override if provided
-    safe_cartesian_transit(approach_target, rpy_override=regrasp_rpy)
+    retract(SCOOP_INITIAL)
 
-    # Now translate along X to the exact weigh boat XY while at pickup_z (or target z)
-    print("Translating along X to weigh boat exact XY at pickup height...")
-    if regrasp_rpy is None:
-        send_position(arm, build_pose([target_grip[0], target_grip[1], target_grip[2]]), speed=40, mvacc=80)
-    else:
-        send_position(arm, [target_grip[0], target_grip[1], target_grip[2], regrasp_rpy[0], regrasp_rpy[1], regrasp_rpy[2]], speed=40, mvacc=80)
 
-    print("Grasping weigh boat for transfer to reactor...")
-    move_gripper(arm, gripper_pick)
-    time.sleep(0.6)
+def scoop_powder():
 
-    # Lift and transit to reactor approach
-    print("Lifting weigh boat to safe transit height...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
+    print("\n=== SCOOPING POWDER ===")
 
-    reactor_pos = [384.9, 175.4, 731.8]
-    # Approach reactor above by first moving to same XY at safe_z
-    print("Transiting to reactor approach position...")
-    send_position(arm, build_pose([reactor_pos[0], reactor_pos[1], safe_z]))
-    # Move down to reactor height (keep a small overhead)
-    reactor_approach_z = reactor_pos[2]
-    send_position(arm, build_pose([reactor_pos[0], reactor_pos[1], reactor_approach_z]))
+    move_above(POWDER_POS)
 
-    # Perform a simple pour motion by adjusting wrist yaw/pitch slightly
-    print("Performing pour motion into reactor...")
-    try:
-        # Tilt by changing yaw (or use joint move to tilt wrist)
-        pour_pose = [reactor_pos[0], reactor_pos[1], reactor_approach_z, ORIENTATION_RPY[0], ORIENTATION_RPY[1], ORIENTATION_RPY[2] + 70.0]
-        send_position(arm, pour_pose)
-        time.sleep(0.8)
-        # Return from pour pose
-        send_position(arm, build_pose([reactor_pos[0], reactor_pos[1], reactor_approach_z]))
-    except Exception:
-        print("Pour motion failed or not supported; continuing.")
+    # descend into powder
+    descend(POWDER_POS)
 
-    # After pouring, return the weigh boat to its original position on the scale
-    print("Returning weigh boat to original scale position...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], pickup_z]))
-    move_gripper(arm, gripper_release)
-    time.sleep(0.6)
+    # simulated scoop motion
+    move_pose(
+        POWDER_POS[0] + 40,
+        POWDER_POS[1],
+        POWDER_POS[2] - 10
+    )
 
-    # Retract and return to initial pose
-    print("Retracting and returning to initial pose...")
-    send_position(arm, build_pose([weigh_boat[0], weigh_boat[1], safe_z]))
-    send_position(arm, build_pose(initial))
+    move_pose(
+        POWDER_POS[0] + 70,
+        POWDER_POS[1],
+        POWDER_POS[2]
+    )
+
+    retract(POWDER_POS)
+
+
+def pour_into_weighboat():
+
+    print("\n=== POURING INTO WEIGH BOAT ===")
+
+    above_boat = [
+        WEIGH_BOAT_POS[0],
+        WEIGH_BOAT_POS[1],
+        120
+    ]
+
+    move_pose(
+        above_boat[0],
+        above_boat[1],
+        above_boat[2]
+    )
+
+    # tilt scoop to pour
+    move_pose(
+        above_boat[0],
+        above_boat[1],
+        above_boat[2],
+        rpy=POUR_RPY
+    )
+
+    time.sleep(2)
+
+    # return orientation
+    move_pose(
+        above_boat[0],
+        above_boat[1],
+        above_boat[2]
+    )
+
+
+def return_scoop():
+
+    print("\n=== RETURNING SCOOP ===")
+
+    move_above(SCOOP_INITIAL)
+
+    descend(SCOOP_INITIAL)
+
+    gripper(GRIPPER_RELEASE_SCOOP)
+
+    retract(SCOOP_INITIAL)
+
+
+# =========================================================
+# WEIGH BOAT FUNCTIONS
+# =========================================================
+
+def pick_weighboat():
+
+    print("\n=== PICKING WEIGH BOAT ===")
+
+    gripper(GRIPPER_RELEASE_WEIGHBOAT)
+
+    approach = [
+        WEIGH_BOAT_POS[0],
+        WEIGH_BOAT_POS[1],
+        120
+    ]
+
+    move_pose(*approach)
+
+    descend(WEIGH_BOAT_POS)
+
+    gripper(GRIPPER_PICK_WEIGHBOAT)
+
+    retract(WEIGH_BOAT_POS)
+
+
+def move_weighboat_to_scale():
+
+    print("\n=== MOVING WEIGH BOAT TO SCALE ===")
+
+    move_above(SCALE_PICK_POS)
+
+    descend(SCALE_PICK_POS)
+
+    gripper(GRIPPER_RELEASE_WEIGHBOAT)
+
+    print("\n=== WAITING FOR SCALE READING ===")
+    time.sleep(5)
+
+    gripper(GRIPPER_PICK_WEIGHBOAT)
+
+    retract(SCALE_PICK_POS)
+
+
+def return_weighboat():
+
+    print("\n=== RETURNING WEIGH BOAT ===")
+
+    move_above(WEIGH_BOAT_POS)
+
+    descend(WEIGH_BOAT_POS)
+
+    gripper(GRIPPER_RELEASE_WEIGHBOAT)
+
+    retract(WEIGH_BOAT_POS)
+
+
+# =========================================================
+# MAIN PROGRAM
+# =========================================================
+
+def main():
+
+    print("\n=== STARTING PROGRAM ===")
+
+    # Home
+    move_pose(*INITIAL_POS)
+
+    # -----------------------------------------------------
+    # SCOOP PROCESS
+    # -----------------------------------------------------
+
+    pick_scoop()
+
+    scoop_powder()
+
+    pour_into_weighboat()
+
+    return_scoop()
+
+    # -----------------------------------------------------
+    # WEIGH BOAT PROCESS
+    # -----------------------------------------------------
+
+    pick_weighboat()
+
+    move_weighboat_to_scale()
+
+    return_weighboat()
+
+    # -----------------------------------------------------
+    # RETURN HOME
+    # -----------------------------------------------------
+
+    print("\n=== RETURNING HOME ===")
+
+    move_pose(*INITIAL_POS)
 
     arm.disconnect()
-    print("Completed pick, pour, and return sequence.")
+
+    print("\n=== PROCESS COMPLETE ===")
 
 
 if __name__ == "__main__":
