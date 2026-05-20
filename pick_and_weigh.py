@@ -7,17 +7,30 @@ except ImportError:
 
 
 # =========================================================
-# CONFIG
+# CONNECTION
 # =========================================================
 
 ARM_IP = "192.168.1.206"
 
-MOVE_SPEED = 80
-MOVE_ACCEL = 200
+arm = XArmAPI(ARM_IP)
+
+arm.motion_enable(True)
+arm.set_mode(0)
+arm.set_state(0)
+
+time.sleep(1)
+
+# =========================================================
+# SPEEDS
+# =========================================================
+
+FAST_SPEED = 80
+SLOW_SPEED = 30
+
+FAST_ACCEL = 200
+SLOW_ACCEL = 80
 
 SAFE_Z = 260
-
-DEFAULT_RPY = [0.0, 180.0, 0.0]
 
 # =========================================================
 # POSITIONS
@@ -25,16 +38,28 @@ DEFAULT_RPY = [0.0, 180.0, 0.0]
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [279.7, -555.5, 10.5]
+WEIGH_BOAT_POS = [279.7, -555.5, 11]
 
 SCALE_POS = [-201.5, -277.0, 88.3]
 
 POWDER_POS = [190.8, -322.4, 93.3]
 
-SCOOP_POS = [-42.0, -246.5, 94.9]
+SCOOP_POS = [-42.1, -246.5, 94.9]
+
+POWDER_RELEASE_POS = [177.7, -555.2, 123.1]
 
 # =========================================================
-# SCOOP JOINT ORIENTATION
+# ORIENTATIONS
+# =========================================================
+
+DEFAULT_RPY = [0.0, 180.0, 0.0]
+
+SCOOP_RPY = [-178.5, -2.0, 91.4]
+
+RELEASE_RPY = [180.0, 0.0, -87.9]
+
+# =========================================================
+# JOINT CONFIGURATIONS
 # =========================================================
 
 SCOOP_JOINTS = [
@@ -46,50 +71,45 @@ SCOOP_JOINTS = [
     171.2
 ]
 
+RELEASE_JOINTS = [
+    -72.3,
+    26.6,
+    -84.9,
+    0.6,
+    58.4,
+    15.9
+]
+
 # =========================================================
 # GRIPPER VALUES
 # =========================================================
 
-# Weigh boat
-GRIPPER_PICK_WEIGHBOAT = 200
-GRIPPER_RELEASE_WEIGHBOAT = 250
+# weigh boat
+GRIPPER_PICK = 200
+GRIPPER_RELEASE = 250
 
-# Scoop
-GRIPPER_PICK_SCOOP = 725
-GRIPPER_OPEN_SCOOP = 500
+# scoop
+GRIPPER_PICK_SCOOP = 715
+GRIPPER_OPEN_SCOOP = 550
 GRIPPER_RELEASE_SCOOP = 850
-
-# =========================================================
-# ARM SETUP
-# =========================================================
-
-arm = XArmAPI(ARM_IP)
-
-arm.motion_enable(True)
-arm.set_mode(0)
-arm.set_state(0)
-
-time.sleep(1)
 
 # =========================================================
 # HELPER FUNCTIONS
 # =========================================================
 
-def move_pose(
-    x,
-    y,
-    z,
+def move_cartesian(
+    pos,
     rpy=DEFAULT_RPY,
-    speed=MOVE_SPEED,
-    accel=MOVE_ACCEL
+    speed=FAST_SPEED,
+    accel=FAST_ACCEL
 ):
 
-    print(f"Moving to {[x, y, z]}")
+    print(f"Moving to {pos}")
 
     code = arm.set_position(
-        x=x,
-        y=y,
-        z=z,
+        x=pos[0],
+        y=pos[1],
+        z=pos[2],
         roll=rpy[0],
         pitch=rpy[1],
         yaw=rpy[2],
@@ -107,12 +127,12 @@ def move_pose(
 
 def move_joints(joints):
 
-    print(f"Moving joints -> {joints}")
+    print(f"Moving joints: {joints}")
 
     code = arm.set_servo_angle(
         angle=joints,
         is_radian=False,
-        speed=30,
+        speed=20,
         wait=True
     )
 
@@ -138,186 +158,217 @@ def gripper(position):
     if code != 0:
         raise RuntimeError(f"Gripper failed: {code}")
 
-    time.sleep(0.7)
+    time.sleep(0.8)
 
 
-def move_above(position):
+def safe_above(pos, rpy=DEFAULT_RPY):
 
-    move_pose(
-        position[0],
-        position[1],
-        SAFE_Z
+    move_cartesian(
+        [pos[0], pos[1], SAFE_Z],
+        rpy=rpy
     )
 
 
-def descend(position):
+def descend(
+    pos,
+    rpy=DEFAULT_RPY,
+    speed=SLOW_SPEED,
+    accel=SLOW_ACCEL
+):
 
-    move_pose(
-        position[0],
-        position[1],
-        position[2]
+    move_cartesian(
+        pos,
+        rpy=rpy,
+        speed=speed,
+        accel=accel
     )
 
 
-def retract(position):
+def retract(pos, rpy=DEFAULT_RPY):
 
-    move_pose(
-        position[0],
-        position[1],
-        SAFE_Z
+    move_cartesian(
+        [pos[0], pos[1], SAFE_Z],
+        rpy=rpy
     )
 
 
 # =========================================================
-# SCOOP FUNCTIONS
+# SCOOP PICKUP
 # =========================================================
 
-def pick_scoop():
+def pickup_scoop():
 
     print("\n=== PICKING SCOOP ===")
 
-    # move to scoop joint orientation
-    move_joints(SCOOP_JOINTS)
-
-    # open robot gripper
     gripper(GRIPPER_RELEASE_SCOOP)
 
-    move_above(SCOOP_POS)
+    move_joints(SCOOP_JOINTS)
 
-    descend(SCOOP_POS)
+    safe_above(SCOOP_POS, SCOOP_RPY)
 
-    # grab scoop tool
+    descend(
+        SCOOP_POS,
+        rpy=SCOOP_RPY
+    )
+
     gripper(GRIPPER_PICK_SCOOP)
 
-    retract(SCOOP_POS)
+    retract(
+        SCOOP_POS,
+        rpy=SCOOP_RPY
+    )
 
+
+# =========================================================
+# SCOOP POWDER
+# =========================================================
 
 def scoop_powder():
 
     print("\n=== SCOOPING POWDER ===")
 
-    move_above(POWDER_POS)
+    safe_above(POWDER_POS, SCOOP_RPY)
 
-    # OPEN scoop before entering powder
+    # open scoop before entering powder
     gripper(GRIPPER_OPEN_SCOOP)
 
-    descend(POWDER_POS)
-
-    # CLOSE scoop to capture powder
-    gripper(GRIPPER_PICK_SCOOP)
-
-    time.sleep(1)
-
-    retract(POWDER_POS)
-
-
-def release_powder_into_weighboat():
-
-    print("\n=== RELEASING POWDER INTO WEIGH BOAT ===")
-
-    above_boat = [
-        WEIGH_BOAT_POS[0],
-        WEIGH_BOAT_POS[1],
-        120
-    ]
-
-    move_pose(
-        above_boat[0],
-        above_boat[1],
-        above_boat[2]
+    descend(
+        POWDER_POS,
+        rpy=SCOOP_RPY
     )
 
-    # RELEASE powder by opening scoop
-    gripper(GRIPPER_OPEN_SCOOP)
+    time.sleep(1)
+
+    # close scoop to trap powder
+    gripper(GRIPPER_PICK_SCOOP)
 
     time.sleep(1)
 
-    # re-close scoop
+    retract(
+        POWDER_POS,
+        rpy=SCOOP_RPY
+    )
+
+
+# =========================================================
+# RELEASE POWDER
+# =========================================================
+
+def release_powder():
+
+    print("\n=== RELEASING POWDER ===")
+
+    move_joints(RELEASE_JOINTS)
+
+    safe_above(
+        POWDER_RELEASE_POS,
+        RELEASE_RPY
+    )
+
+    descend(
+        POWDER_RELEASE_POS,
+        rpy=RELEASE_RPY
+    )
+
+    # open scoop to release powder
+    gripper(GRIPPER_OPEN_SCOOP)
+
+    time.sleep(2)
+
+    # close scoop again
     gripper(GRIPPER_PICK_SCOOP)
 
+    retract(
+        POWDER_RELEASE_POS,
+        rpy=RELEASE_RPY
+    )
+
+
+# =========================================================
+# RETURN SCOOP
+# =========================================================
 
 def return_scoop():
 
     print("\n=== RETURNING SCOOP ===")
 
-    move_above(SCOOP_POS)
+    move_joints(SCOOP_JOINTS)
 
-    descend(SCOOP_POS)
+    safe_above(
+        SCOOP_POS,
+        SCOOP_RPY
+    )
 
-    # release scoop tool
+    descend(
+        SCOOP_POS,
+        rpy=SCOOP_RPY
+    )
+
     gripper(GRIPPER_RELEASE_SCOOP)
 
-    retract(SCOOP_POS)
+    time.sleep(1)
+
+    retract(
+        SCOOP_POS,
+        rpy=SCOOP_RPY
+    )
 
 
 # =========================================================
-# WEIGH BOAT FUNCTIONS
+# PICK WEIGH BOAT
 # =========================================================
 
-def pick_weighboat():
+def pickup_weighboat():
 
     print("\n=== PICKING WEIGH BOAT ===")
 
-    gripper(GRIPPER_RELEASE_WEIGHBOAT)
+    gripper(GRIPPER_RELEASE)
 
-    approach = [
-        WEIGH_BOAT_POS[0],
-        WEIGH_BOAT_POS[1],
-        120
-    ]
-
-    move_pose(*approach)
+    safe_above(WEIGH_BOAT_POS)
 
     descend(WEIGH_BOAT_POS)
 
-    gripper(GRIPPER_PICK_WEIGHBOAT)
+    gripper(GRIPPER_PICK)
 
     retract(WEIGH_BOAT_POS)
 
 
-def move_weighboat_to_scale():
+# =========================================================
+# MOVE TO SCALE
+# =========================================================
 
-    print("\n=== MOVING WEIGH BOAT TO SCALE ===")
+def move_to_scale():
 
-    approach = [
-        SCALE_POS[0],
-        SCALE_POS[1],
-        150
-    ]
+    print("\n=== MOVING TO SCALE ===")
 
-    move_pose(*approach)
+    safe_above(SCALE_POS)
 
     descend(SCALE_POS)
 
-    # place on scale
-    gripper(GRIPPER_RELEASE_WEIGHBOAT)
+    gripper(GRIPPER_RELEASE)
 
     print("\n=== WAITING FOR SCALE READING ===")
 
     time.sleep(5)
 
-    # pick it back up
-    gripper(GRIPPER_PICK_WEIGHBOAT)
+    gripper(GRIPPER_PICK)
 
     retract(SCALE_POS)
 
+
+# =========================================================
+# RETURN WEIGH BOAT
+# =========================================================
 
 def return_weighboat():
 
     print("\n=== RETURNING WEIGH BOAT ===")
 
-    approach = [
-        WEIGH_BOAT_POS[0],
-        WEIGH_BOAT_POS[1],
-        120
-    ]
-
-    move_pose(*approach)
+    safe_above(WEIGH_BOAT_POS)
 
     descend(WEIGH_BOAT_POS)
 
-    # release weigh boat back
-    gripper(GRIPPER_RELEASE_WEIGHBOAT)
+    gripper(GRIPPER_RELEASE)
 
     time.sleep(1)
 
@@ -332,27 +383,28 @@ def main():
 
     print("\n=== STARTING PROGRAM ===")
 
-    move_pose(*INITIAL_POS)
+    # home
+    move_cartesian(INITIAL_POS)
 
     # -----------------------------------------------------
-    # SCOOP PROCESS
+    # SCOOP WORKFLOW
     # -----------------------------------------------------
 
-    pick_scoop()
+    pickup_scoop()
 
     scoop_powder()
 
-    release_powder_into_weighboat()
+    release_powder()
 
     return_scoop()
 
     # -----------------------------------------------------
-    # WEIGH BOAT PROCESS
+    # WEIGH BOAT WORKFLOW
     # -----------------------------------------------------
 
-    pick_weighboat()
+    pickup_weighboat()
 
-    move_weighboat_to_scale()
+    move_to_scale()
 
     return_weighboat()
 
@@ -362,11 +414,11 @@ def main():
 
     print("\n=== RETURNING HOME ===")
 
-    move_pose(*INITIAL_POS)
+    move_cartesian(INITIAL_POS)
 
     arm.disconnect()
 
-    print("\n=== COMPLETE ===")
+    print("\n=== PROCESS COMPLETE ===")
 
 
 if __name__ == "__main__":
