@@ -7,8 +7,8 @@ pour_orientation: [0.0, 150.0, 45.0]
 powder_position: [190.8, -322.4, 93.3] 
 gripper_pick: 200 gripper_release: 250 
 weigh_boat_weight: 17.63 
-scoop_initial postion: [-42, -246.5, 94.9], j1
+scoop_initial postion: [-42.1, -246.5, 94.9], (j1: -99,j2: -36.7,j3: -11.7,j4: -1.2,j5: 50.1,j6: 171.2), roll: -178.5 degrees, pitch: -2 degrees, Yaw: 91.4 degrees
 gripper_pick_scoop: 715 
 gripper_open_scoop: 550 
 gripper_release_scoop: 850
-powder release position: [177.7, -555.2, 123.1], j1: 
+powder release position: [177.7, -555.2, 123.1], ( j1: -72.3,j2: 26.6,j3: -84.9,j4: 0.6,j5: 58.4, j6: 15.9), roll: 180 degrees, pitch: 0 degrees, Yaw: -87.9 degrees
