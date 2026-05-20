@@ -38,11 +38,11 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [279.7, -555.5, 11]
+WEIGH_BOAT_POS = [279.7, -555.5, 11.2]
 
 SCALE_POS = [-201.5, -277.0, 88.3]
 
-POWDER_POS = [190.8, -322.4, 93.3]
+POWDER_POS = [190.8, -322.4, 135]
 
 SCOOP_POS = [-42.1, -246.5, 94.9]
 
@@ -85,7 +85,7 @@ RELEASE_JOINTS = [
 # =========================================================
 
 # weigh boat
-GRIPPER_PICK = 200
+GRIPPER_PICK = 205
 GRIPPER_RELEASE = 250
 
 # scoop
@@ -204,7 +204,7 @@ def pickup_scoop():
 
     move_joints(SCOOP_JOINTS)
 
-    safe_above(SCOOP_POS, SCOOP_RPY)
+    #safe_above(SCOOP_POS, SCOOP_RPY)
 
     descend(
         SCOOP_POS,
@@ -260,11 +260,6 @@ def release_powder():
 
     move_joints(RELEASE_JOINTS)
 
-    safe_above(
-        POWDER_RELEASE_POS,
-        RELEASE_RPY
-    )
-
     descend(
         POWDER_RELEASE_POS,
         rpy=RELEASE_RPY
@@ -294,10 +289,7 @@ def return_scoop():
 
     move_joints(SCOOP_JOINTS)
 
-    safe_above(
-        SCOOP_POS,
-        SCOOP_RPY
-    )
+    
 
     descend(
         SCOOP_POS,
@@ -384,12 +376,12 @@ def main():
     print("\n=== STARTING PROGRAM ===")
 
     # home
-    move_cartesian(INITIAL_POS)
+    #move_cartesian(INITIAL_POS)
 
     # -----------------------------------------------------
     # SCOOP WORKFLOW
     # -----------------------------------------------------
-
+    time.sleep(2)
     pickup_scoop()
 
     scoop_powder()
