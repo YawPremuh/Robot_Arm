@@ -46,7 +46,7 @@ POWDER_POS = [190.8, -322.4, 135]
 
 SCOOP_POS = [-42.1, -246.5, 94.9]
 
-POWDER_RELEASE_POS = [177.7, -555.2, 123.1]
+POWDER_RELEASE_POS = [177.7, -555.2, 123.1] [-220, -277.0, 123.1]
 
 # =========================================================
 # ORIENTATIONS
@@ -379,9 +379,17 @@ def main():
     #move_cartesian(INITIAL_POS)
 
     # -----------------------------------------------------
-    # SCOOP WORKFLOW
+    # WEIGH BOAT WORKFLOW
     # -----------------------------------------------------
     time.sleep(2)
+    pickup_weighboat()
+
+    move_to_scale()
+    
+    
+    # -----------------------------------------------------
+    # SCOOP WORKFLOW
+    # -----------------------------------------------------
     pickup_scoop()
 
     scoop_powder()
@@ -390,13 +398,9 @@ def main():
 
     return_scoop()
 
-    # -----------------------------------------------------
-    # WEIGH BOAT WORKFLOW
-    # -----------------------------------------------------
+    
 
-    pickup_weighboat()
-
-    move_to_scale()
+    
 
     return_weighboat()
 
