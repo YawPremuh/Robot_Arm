@@ -341,11 +341,7 @@ def move_to_scale():
 
     print("\n=== WAITING FOR SCALE READING ===")
 
-    time.sleep(5)
-
-    gripper(GRIPPER_PICK)
-
-    retract(SCALE_POS)
+    
 
 
 # =========================================================
@@ -365,6 +361,9 @@ def return_weighboat():
     time.sleep(1)
 
     retract(WEIGH_BOAT_POS)
+
+def add_powder():
+    #This function should accept a string that says "add" or "no add"; if the user enters add, the robot arm should scoop powder again and add it to the weigh boat; else move the weigh boat to the reactor and just let it sit there.
 
 
 # =========================================================
