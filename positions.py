@@ -35,7 +35,7 @@ SCALE_POS = [-201.5, -277.0, 88.3]
 
 POWDER_POS = [193.4, -322.4, 130]
 
-SCOOP_POS = [-42.1, -245, 94.9]
+SCOOP_POS = [-42.1, -244, 94.9]
 
 POWDER_RELEASE_POS = [-295, -277.0, 200]
 
@@ -390,7 +390,7 @@ def release_powder():
 
     print("\n=== RELEASING POWDER INTO WEIGH BOAT ===")
 
-    move_joints(RELEASE_JOINTS)
+    
 
     safe_above(
         POWDER_RELEASE_POS,
@@ -423,23 +423,23 @@ def return_scoop():
 
     print("\n=== RETURNING SCOOP ===")
 
-    # move high above scoop first
-    move_cartesian(
-        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z]
+    move_joints(SCOOP_JOINTS)
+
+    
+
+    descend(
+        SCOOP_POS,
+        rpy=SCOOP_RPY
     )
 
-
-    # release scoop
     gripper(GRIPPER_RELEASE_SCOOP)
 
     time.sleep(1)
 
-    # retract vertically
-    move_cartesian(
-        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z],
+    retract(
+        SCOOP_POS,
         rpy=SCOOP_RPY
     )
-
 # =========================================================
 # MOVE WEIGH BOAT TO REACTOR
 # =========================================================
@@ -448,11 +448,30 @@ def move_to_reactor():
 
     print("\n=== MOVING WEIGH BOAT TO REACTOR ===")
 
-    safe_above(REACTOR_POS, RELEASE_RPY)
-
-    descend(
-        REACTOR_POS,
+    # Step 1: rise straight up from scale
+    move_cartesian(
+        [SCALE_POS[0], SCALE_POS[1], 350],
         rpy=RELEASE_RPY
+    )
+
+    # Step 2: intermediate waypoint
+    move_cartesian(
+        [250, 0, 400],
+        rpy=RELEASE_RPY
+    )
+
+    # Step 3: above reactor
+    move_cartesian(
+        [REACTOR_POS[0], REACTOR_POS[1], 400],
+        rpy=RELEASE_RPY
+    )
+
+    # Step 4: descend
+    move_cartesian(
+        REACTOR_POS,
+        rpy=RELEASE_RPY,
+        speed=15,
+        accel=40
     )
 
     print("\n=== WEIGH BOAT AT REACTOR ===")
@@ -477,8 +496,6 @@ def add_powder():
 
             print("\n=== ADDING MORE POWDER ===")
 
-            place_weighboat_on_scale()
-
             pickup_scoop()
 
             scoop_powder()
@@ -491,7 +508,6 @@ def add_powder():
 
             time.sleep(5)
 
-            regrasp_weighboat_from_scale()
 
         # -------------------------------------------------
         # MOVE TO REACTOR
@@ -543,10 +559,7 @@ def main():
 
         print("\n=== WAITING FOR SCALE READING ===")
 
-        time.sleep(5)
-
-        # grab weigh boat again
-        regrasp_weighboat_from_scale()
+        time.sleep(1)
 
         # ask user if more powder should be added
         add_powder()
