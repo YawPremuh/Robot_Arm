@@ -33,11 +33,11 @@ WEIGH_BOAT_POS = [279.7, -555.5, 11]
 
 SCALE_POS = [-201.5, -277.0, 88.3]
 
-POWDER_POS = [190.8, -322.4, 93.3]
+POWDER_POS = [193.4, -322.4, 130]
 
-SCOOP_POS = [-42.1, -246.5, 94.9]
+SCOOP_POS = [-42.1, -245, 94.9]
 
-POWDER_RELEASE_POS = [177.7, -555.2, 150]
+POWDER_RELEASE_POS = [-295, -277.0, 200]
 
 POWDER_POUR_POS = [220.6, -326.6, 287]
 
@@ -337,17 +337,7 @@ def pickup_scoop():
 
     time.sleep(1)
 
-    # move directly above scoop
-    move_cartesian(
-        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z],
-        rpy=SCOOP_RPY
-    )
-
-    # descend vertically
-    descend(
-        SCOOP_POS,
-        rpy=SCOOP_RPY
-    )
+    
 
     # grab scoop
     gripper(GRIPPER_PICK_SCOOP)
@@ -373,9 +363,11 @@ def scoop_powder():
     # open scoop
     gripper(GRIPPER_OPEN_SCOOP)
 
-    descend(
+    move_cartesian(
         POWDER_POS,
-        rpy=SCOOP_RPY
+        rpy=SCOOP_RPY,
+        speed=8,
+        accel=30
     )
 
     time.sleep(1)
@@ -436,22 +428,6 @@ def return_scoop():
         [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z]
     )
 
-    # rotate safely above scoop
-    move_joints(SCOOP_JOINTS)
-
-    time.sleep(1)
-
-    # move directly above scoop
-    move_cartesian(
-        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z],
-        rpy=SCOOP_RPY
-    )
-
-    # descend vertically
-    descend(
-        SCOOP_POS,
-        rpy=SCOOP_RPY
-    )
 
     # release scoop
     gripper(GRIPPER_RELEASE_SCOOP)
@@ -547,6 +523,7 @@ def main():
 
         print("\n=== STARTING PROGRAM ===")
 
+        time.sleep(2)
         # home
         move_cartesian(INITIAL_POS)
 
