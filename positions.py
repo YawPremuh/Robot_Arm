@@ -31,17 +31,19 @@ INITIAL_POS = [-64.8, -245.5, 301.5]
 
 WEIGH_BOAT_POS = [279.7, -555.5, 11]
 
-SCALE_POS = [-200, -277.0, 88.3]
+SCALE_POS = [-285, -183, 86]
 
 POWDER_POS = [193.4, -322.4, 130]
 
 SCOOP_POS = [-42.1, -244, 94.9]
 
-POWDER_RELEASE_POS = [-295, -277.0, 200]
+POWDER_RELEASE_POS = [-286.1, -277.0, 200]
 
 POWDER_POUR_POS = [220.6, -326.6, 287]
 
-REACTOR_POS = [384.9, 175.4, 731.8]
+REACTOR_FUNNEL_POS = [403.6, 85.6, 704.5]
+
+REACTOR_APPROACH = [ 403.6, 85.6, 780.0]
 
 # =========================================================
 # SCOOP SAFETY
@@ -62,7 +64,15 @@ SCOOP_RPY = [-178.5, -2.0, 91.4]
 
 RELEASE_RPY = [180.0, 0.0, -87.9]
 
+POWDER_RELEASE_RPY = [-178.5, -2, 2.1]
+
 POUR_BACK_RPY = [180.0, -35.0, -87.9]
+
+REACTOR_APPROACH_RPY = [106.4, 89.6, 161.9]
+
+REACTOR_FUNNEL_RPY = [106.4, 89.6, 161.9]
+
+POUR_RPY = [60.0, 89.6, 161.9]
 
 # =========================================================
 # JOINT CONFIGURATIONS
@@ -86,17 +96,26 @@ RELEASE_JOINTS = [
     15.9
 ]
 
+REACTOR_JOINTS = [
+    25.1,
+    -31.6,
+    -70.3,
+    89.6,
+    80.3,
+    103.3
+]
+
 # =========================================================
 # GRIPPER VALUES
 # =========================================================
 
 # weigh boat
 GRIPPER_PICK = 200
-GRIPPER_RELEASE = 250
+GRIPPER_RELEASE = 850
 
 # scoop
 GRIPPER_PICK_SCOOP = 715
-GRIPPER_OPEN_SCOOP = 550
+GRIPPER_OPEN_SCOOP = 450
 GRIPPER_RELEASE_SCOOP = 850
 
 # =========================================================
@@ -282,9 +301,15 @@ def place_weighboat_on_scale():
 
     print("\n=== PLACING WEIGH BOAT ON SCALE ===")
 
-    safe_above(SCALE_POS)
+    safe_above(
+        SCALE_POS,
+        RELEASE_RPY
+        )
 
-    descend(SCALE_POS)
+    descend(    
+        SCALE_POS,
+        rpy=RELEASE_RPY
+        )
 
     time.sleep(1)
 
@@ -305,9 +330,24 @@ def regrasp_weighboat_from_scale():
 
     print("\n=== REGRASPING WEIGH BOAT ===")
 
-    safe_above(SCALE_POS)
+    # first move high above scale
+    move_cartesian([
+        SCALE_POS[0],
+        SCALE_POS[1],
+        SAFE_Z
+    ])
 
-    descend(SCALE_POS)
+ 
+
+    time.sleep(1)
+
+    # descend vertically with the exact orientation
+    move_cartesian(
+        SCALE_POS,
+        rpy=RELEASE_RPY,
+        speed=70,
+        accel=40
+    )
 
     time.sleep(1)
 
@@ -315,8 +355,17 @@ def regrasp_weighboat_from_scale():
 
     time.sleep(1)
 
-    retract(SCALE_POS)
+    # lift straight up
+    move_cartesian(
+        [
+            SCALE_POS[0],
+            SCALE_POS[1],
+            SAFE_Z
+        ],
+        rpy=RELEASE_RPY
+    )
 
+    print("\n=== WEIGH BOAT REGRASPED ===")
 # =========================================================
 # PICKUP SCOOP
 # =========================================================
@@ -394,12 +443,12 @@ def release_powder():
 
     safe_above(
         POWDER_RELEASE_POS,
-        RELEASE_RPY
+        POWDER_RELEASE_RPY
     )
 
     descend(
         POWDER_RELEASE_POS,
-        rpy=RELEASE_RPY
+        rpy=POWDER_RELEASE_RPY
     )
 
     # release powder
@@ -446,35 +495,67 @@ def return_scoop():
 
 def move_to_reactor():
 
-    print("\n=== MOVING WEIGH BOAT TO REACTOR ===")
+    print("\n=== MOVING TO REACTOR ===")
 
-    # Step 1: rise straight up from scale
+    # move to known safe reactor configuration
+    move_joints(REACTOR_JOINTS)
+
+    time.sleep(1)
+
+    # move above funnel
     move_cartesian(
-        [SCALE_POS[0], SCALE_POS[1], 350],
-        rpy=RELEASE_RPY
+        REACTOR_APPROACH,
+        rpy=REACTOR_APPROACH_RPY
     )
 
-    # Step 2: intermediate waypoint
+    # descend
     move_cartesian(
-        [250, 0, 400],
-        rpy=RELEASE_RPY
-    )
-
-    # Step 3: above reactor
-    move_cartesian(
-        [REACTOR_POS[0], REACTOR_POS[1], 400],
-        rpy=RELEASE_RPY
-    )
-
-    # Step 4: descend
-    move_cartesian(
-        REACTOR_POS,
-        rpy=RELEASE_RPY,
+        REACTOR_FUNNEL_POS,
+        rpy=REACTOR_FUNNEL_RPY,
         speed=15,
         accel=40
     )
 
-    print("\n=== WEIGH BOAT AT REACTOR ===")
+    print("\n=== AT REACTOR ===")
+    
+def pour_into_reactor():
+
+    print("\n=== POURING INTO REACTOR ===")
+
+    intermediate_1 = [108.5, 75.0, 163.5]
+    intermediate_2 = [110.5, 55.0, 165.5]
+
+    move_cartesian(
+        REACTOR_FUNNEL_POS,
+        rpy=intermediate_1,
+        speed=8,
+        accel=15
+    )
+
+    move_cartesian(
+        REACTOR_FUNNEL_POS,
+        rpy=intermediate_2,
+        speed=8,
+        accel=15
+    )
+
+    move_cartesian(
+        REACTOR_FUNNEL_POS,
+        rpy=POUR_RPY,
+        speed=8,
+        accel=15
+    )
+
+    time.sleep(3)
+
+    move_cartesian(
+        REACTOR_FUNNEL_POS,
+        rpy=REACTOR_FUNNEL_RPY,
+        speed=8,
+        accel=15
+    )
+
+    print("\n=== POUR COMPLETE ===")
 
 # =========================================================
 # ADD POWDER LOOP
@@ -516,8 +597,9 @@ def add_powder():
         elif user_input == "no add":
 
             print("\n=== MOVING TO REACTOR ===")
-
+            regrasp_weighboat_from_scale()
             move_to_reactor()
+            pour_into_reactor()
 
             break
 
