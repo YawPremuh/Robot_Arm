@@ -5,27 +5,18 @@ try:
 except ImportError:
     from xarm import XArmAPI
 
-
 # =========================================================
 # CONNECTION
 # =========================================================
 
 ARM_IP = "192.168.1.206"
 
-arm = XArmAPI(ARM_IP)
-
-arm.motion_enable(True)
-arm.set_mode(0)
-arm.set_state(0)
-
-time.sleep(1)
-
 # =========================================================
 # SPEEDS
 # =========================================================
 
 FAST_SPEED = 80
-SLOW_SPEED = 30
+SLOW_SPEED = 25
 
 FAST_ACCEL = 200
 SLOW_ACCEL = 80
@@ -38,15 +29,30 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [279.7, -555.5, 11.2]
+WEIGH_BOAT_POS = [279.7, -555.5, 11]
 
-SCALE_POS = [-201.5, -277.0, 88.3]
+SCALE_POS = [-285, -183, 86]
 
-POWDER_POS = [190.8, -322.4, 135]
+POWDER_POS = [192, -322.4, 130]
 
-SCOOP_POS = [-42.1, -246.5, 94.9]
+SCOOP_POS = [-42.1, -244, 94.9]
 
-POWDER_RELEASE_POS = [-295, -277.0, 180]
+POWDER_RELEASE_POS = [-286.1, -277.0, 200]
+
+POWDER_POUR_POS = [220.6, -326.6, 287]
+
+REACTOR_POS = [403.6, 85.6, 704.5]
+
+REACTOR_APPROACH = [ 403.6, 85.6, 780.0]
+
+# =========================================================
+# SCOOP SAFETY
+# =========================================================
+
+SCOOP_HEIGHT = 122
+
+# high approach height to avoid knocking scoop over
+SCOOP_APPROACH_Z = SCOOP_POS[2] + SCOOP_HEIGHT + 120
 
 # =========================================================
 # ORIENTATIONS
@@ -57,6 +63,16 @@ DEFAULT_RPY = [0.0, 180.0, 0.0]
 SCOOP_RPY = [-178.5, -2.0, 91.4]
 
 RELEASE_RPY = [180.0, 0.0, -87.9]
+
+POWDER_RELEASE_RPY = [-178.5, -2, 2.1]
+
+POUR_BACK_RPY = [180.0, -35.0, -87.9]
+
+REACTOR_APPROACH_RPY = [106.4, 89.6, 161.9]
+
+REACTOR_FUNNEL_RPY = [106.4, 89.6, 161.9]
+
+POUR_RPY = [60.0, 89.6, 161.9]
 
 # =========================================================
 # JOINT CONFIGURATIONS
@@ -80,18 +96,86 @@ RELEASE_JOINTS = [
     15.9
 ]
 
+REACTOR_JOINTS = [
+    25.1,
+    -31.6,
+    -70.3,
+    89.6,
+    80.3,
+    103.3
+]
+
 # =========================================================
 # GRIPPER VALUES
 # =========================================================
 
 # weigh boat
-GRIPPER_PICK = 205
-GRIPPER_RELEASE = 250
+GRIPPER_PICK = 200
+GRIPPER_RELEASE = 850
 
 # scoop
 GRIPPER_PICK_SCOOP = 715
-GRIPPER_OPEN_SCOOP = 550
+GRIPPER_OPEN_SCOOP = 450
 GRIPPER_RELEASE_SCOOP = 850
+
+# =========================================================
+# INITIALIZE ARM
+# =========================================================
+
+arm = XArmAPI(ARM_IP)
+
+time.sleep(2)
+
+print("Cleaning warnings/errors...")
+
+arm.clean_warn()
+arm.clean_error()
+
+time.sleep(2)
+
+print("Enabling motion...")
+
+arm.motion_enable(enable=True)
+
+time.sleep(2)
+
+print("Setting mode...")
+
+arm.set_mode(0)
+
+time.sleep(1)
+
+print("Setting state...")
+
+arm.set_state(state=0)
+
+time.sleep(3)
+
+# =========================================================
+# CHECK ROBOT STATUS
+# =========================================================
+
+state = arm.state
+error = arm.error_code
+
+print(f"Robot state: {state}")
+print(f"Robot error: {error}")
+
+if error != 0:
+
+    print("Robot has actual error")
+
+    arm.disconnect()
+
+    exit()
+
+if state in [0, 2]:
+
+    print("xArm ready")
+
+else:
+
+    print(f"Unexpected state: {state}")
 
 # =========================================================
 # HELPER FUNCTIONS
@@ -191,9 +275,99 @@ def retract(pos, rpy=DEFAULT_RPY):
         rpy=rpy
     )
 
+# =========================================================
+# PICK WEIGH BOAT
+# =========================================================
+
+def pickup_weighboat():
+
+    print("\n=== PICKING WEIGH BOAT ===")
+
+    gripper(GRIPPER_RELEASE)
+
+    safe_above(WEIGH_BOAT_POS)
+
+    descend(WEIGH_BOAT_POS)
+
+    gripper(GRIPPER_PICK)
+
+    retract(WEIGH_BOAT_POS)
 
 # =========================================================
-# SCOOP PICKUP
+# PLACE WEIGH BOAT ON SCALE
+# =========================================================
+
+def place_weighboat_on_scale():
+
+    print("\n=== PLACING WEIGH BOAT ON SCALE ===")
+
+    safe_above(
+        SCALE_POS,
+        RELEASE_RPY
+        )
+
+    descend(    
+        SCALE_POS,
+        rpy=RELEASE_RPY
+        )
+
+    time.sleep(1)
+
+    gripper(GRIPPER_RELEASE)
+
+    time.sleep(1)
+
+    # ascend vertically first
+    retract(SCALE_POS)
+
+    print("\n=== WEIGH BOAT PLACED SAFELY ===")
+
+# =========================================================
+# REGRASP WEIGH BOAT
+# =========================================================
+
+def regrasp_weighboat_from_scale():
+
+    print("\n=== REGRASPING WEIGH BOAT ===")
+
+    # first move high above scale
+    move_cartesian([
+        SCALE_POS[0],
+        SCALE_POS[1],
+        SAFE_Z
+    ])
+
+ 
+
+    time.sleep(1)
+
+    # descend vertically with the exact orientation
+    move_cartesian(
+        SCALE_POS,
+        rpy=RELEASE_RPY,
+        speed=70,
+        accel=40
+    )
+
+    time.sleep(1)
+
+    gripper(GRIPPER_PICK)
+
+    time.sleep(1)
+
+    # lift straight up
+    move_cartesian(
+        [
+            SCALE_POS[0],
+            SCALE_POS[1],
+            SAFE_Z
+        ],
+        rpy=RELEASE_RPY
+    )
+
+    print("\n=== WEIGH BOAT REGRASPED ===")
+# =========================================================
+# PICKUP SCOOP
 # =========================================================
 
 def pickup_scoop():
@@ -202,22 +376,28 @@ def pickup_scoop():
 
     gripper(GRIPPER_RELEASE_SCOOP)
 
+    # move high above scoop BEFORE rotating
+    move_cartesian(
+        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z]
+    )
+
+    # rotate safely above scoop
     move_joints(SCOOP_JOINTS)
 
-    #safe_above(SCOOP_POS, SCOOP_RPY)
+    time.sleep(1)
 
-    descend(
-        SCOOP_POS,
-        rpy=SCOOP_RPY
-    )
+    
 
+    # grab scoop
     gripper(GRIPPER_PICK_SCOOP)
 
-    retract(
-        SCOOP_POS,
+    time.sleep(1)
+
+    # retract vertically
+    move_cartesian(
+        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z],
         rpy=SCOOP_RPY
     )
-
 
 # =========================================================
 # SCOOP POWDER
@@ -229,17 +409,19 @@ def scoop_powder():
 
     safe_above(POWDER_POS, SCOOP_RPY)
 
-    # open scoop before entering powder
+    # open scoop
     gripper(GRIPPER_OPEN_SCOOP)
 
-    descend(
+    move_cartesian(
         POWDER_POS,
-        rpy=SCOOP_RPY
+        rpy=SCOOP_RPY,
+        speed=8,
+        accel=30
     )
 
     time.sleep(1)
 
-    # close scoop to trap powder
+    # close scoop
     gripper(GRIPPER_PICK_SCOOP)
 
     time.sleep(1)
@@ -249,23 +431,27 @@ def scoop_powder():
         rpy=SCOOP_RPY
     )
 
-
 # =========================================================
-# RELEASE POWDER
+# RELEASE POWDER INTO WEIGH BOAT
 # =========================================================
 
 def release_powder():
 
-    print("\n=== RELEASING POWDER ===")
+    print("\n=== RELEASING POWDER INTO WEIGH BOAT ===")
 
-    move_joints(RELEASE_JOINTS)
+    
+
+    safe_above(
+        POWDER_RELEASE_POS,
+        POWDER_RELEASE_RPY
+    )
 
     descend(
         POWDER_RELEASE_POS,
-        rpy=RELEASE_RPY
+        rpy=POWDER_RELEASE_RPY
     )
 
-    # open scoop to release powder
+    # release powder
     gripper(GRIPPER_OPEN_SCOOP)
 
     time.sleep(2)
@@ -277,7 +463,6 @@ def release_powder():
         POWDER_RELEASE_POS,
         rpy=RELEASE_RPY
     )
-
 
 # =========================================================
 # RETURN SCOOP
@@ -304,67 +489,154 @@ def return_scoop():
         SCOOP_POS,
         rpy=SCOOP_RPY
     )
-
-
 # =========================================================
-# PICK WEIGH BOAT
+# MOVE WEIGH BOAT TO REACTOR
 # =========================================================
 
-def pickup_weighboat():
+def move_to_reactor():
 
-    print("\n=== PICKING WEIGH BOAT ===")
+    print("\n=== MOVING TO REACTOR ===")
 
-    gripper(GRIPPER_RELEASE)
+    # keep current weigh boat orientation
+    safe_above(SCALE_POS, WEIGHBOAT_PICKUP_RPY)
 
-    safe_above(WEIGH_BOAT_POS)
+    # move horizontally to reactor while staying level
+    move_cartesian(
+        [REACTOR_POS[0], REACTOR_POS[1], SAFE_Z],
+        rpy=WEIGHBOAT_PICKUP_RPY
+    )
 
-    descend(WEIGH_BOAT_POS)
+    # move above funnel
+    move_cartesian(
+        REACTOR_APPROACH,
+        rpy=WEIGHBOAT_PICKUP_RPY
+    )
 
-    gripper(GRIPPER_PICK)
-
-    retract(WEIGH_BOAT_POS)
-
-
-# =========================================================
-# MOVE TO SCALE
-# =========================================================
-
-def move_to_scale():
-
-    print("\n=== MOVING TO SCALE ===")
-
-    safe_above(SCALE_POS)
-
-    descend(SCALE_POS)
-
-    gripper(GRIPPER_RELEASE)
-
-    print("\n=== WAITING FOR SCALE READING ===")
-
+    print("\n=== AT REACTOR APPROACH ===")
     
+def pour_into_reactor():
+
+    print("\n=== POURING INTO REACTOR ===")
+
+    intermediate_1 = [108.5, 75.0, 163.5]
+    intermediate_2 = [110.5, 55.0, 165.5]
+
+    move_cartesian(
+        REACTOR_POS,
+        rpy=intermediate_1,
+        speed=8,
+        accel=15
+    )
+
+    move_cartesian(
+        REACTOR_POS,
+        rpy=intermediate_2,
+        speed=8,
+        accel=15
+    )
+
+    move_cartesian(
+        REACTOR_POS,
+        rpy=POUR_RPY,
+        speed=8,
+        accel=15
+    )
+
+    time.sleep(3)
+
+    move_cartesian(
+        REACTOR_POS,
+        rpy=REACTOR_FUNNEL_RPY,
+        speed=8,
+        accel=15
+    )
+
+    print("\n=== POUR COMPLETE ===")
+
+# =========================================================
+# ADD POWDER LOOP
+# =========================================================
+
+def add_powder():
+
+    while True:
+
+        user_input = input(
+            "\nEnter 'add' or 'no add': "
+        ).strip().lower()
+
+        # -------------------------------------------------
+        # ADD MORE POWDER
+        # -------------------------------------------------
+
+        if user_input == "add":
+
+            print("\n=== ADDING MORE POWDER ===")
+
+            pickup_scoop()
+
+            scoop_powder()
+
+            release_powder()
+
+            return_scoop()
+
+            print("\n=== WAITING FOR SCALE READING ===")
+
+            time.sleep(5)
+
+
+        # -------------------------------------------------
+        # MOVE TO REACTOR
+        # -------------------------------------------------
+
+        elif user_input == "no add":
+
+            print("\n=== MOVING TO REACTOR ===")
+            regrasp_weighboat_from_scale()
+            move_to_reactor()
+            pour_into_reactor()
+
+            break
+
+        else:
+
+            print("\nInvalid input.")
+            print("Please enter:")
+            print("'add'")
+            print("or")
+            print("'no add'")
 
 
 # =========================================================
-# RETURN WEIGH BOAT
+# RETURN SCOOP
 # =========================================================
+# =========================================================
+# RETURN WEIGH BOAT HOME
+# =========================================================
+def return_weighboat_home():
 
-def return_weighboat():
+    print("\n=== RETURNING WEIGH BOAT HOME ===")
 
-    print("\n=== RETURNING WEIGH BOAT ===")
+    safe_above(WEIGH_BOAT_POS, DEFAULT_RPY)
 
-    safe_above(WEIGH_BOAT_POS)
+    descend(
+        WEIGH_BOAT_POS,
+        rpy=DEFAULT_RPY
+    )
 
-    descend(WEIGH_BOAT_POS)
+    time.sleep(1)
 
     gripper(GRIPPER_RELEASE)
 
     time.sleep(1)
 
-    retract(WEIGH_BOAT_POS)
+    retract(
+        WEIGH_BOAT_POS,
+        rpy=DEFAULT_RPY
+    )
 
-def add_powder():
-    #This function should accept a string that says "add" or "no add"; if the user enters add, the robot arm should scoop powder again and add it to the weigh boat; else move the weigh boat to the reactor and just let it sit there.
-
+    print("\n=== WEIGH BOAT STORED ===")
 
 # =========================================================
 # MAIN
@@ -372,49 +644,53 @@ def add_powder():
 
 def main():
 
-    print("\n=== STARTING PROGRAM ===")
+    try:
 
-    # home
-    #move_cartesian(INITIAL_POS)
+        print("\n=== STARTING PROGRAM ===")
 
-    # -----------------------------------------------------
-    # WEIGH BOAT WORKFLOW
-    # -----------------------------------------------------
-    time.sleep(2)
-    pickup_weighboat()
+        time.sleep(2)
+        # home
+        move_cartesian(INITIAL_POS)
 
-    move_to_scale()
-    
-    
-    # -----------------------------------------------------
-    # SCOOP WORKFLOW
-    # -----------------------------------------------------
-    pickup_scoop()
+        # place weigh boat on scale
+        pickup_weighboat()
 
-    scoop_powder()
+        place_weighboat_on_scale()
 
-    release_powder()
+        # scoop workflow
+        pickup_scoop()
 
-    return_scoop()
+        scoop_powder()
 
-    
+        release_powder()
 
-    
+        return_scoop()
 
-    return_weighboat()
+        print("\n=== WAITING FOR SCALE READING ===")
 
-    # -----------------------------------------------------
-    # RETURN HOME
-    # -----------------------------------------------------
+        time.sleep(1)
 
-    print("\n=== RETURNING HOME ===")
+        # ask user if more powder should be added
+        add_powder()
 
-    move_cartesian(INITIAL_POS)
+        return_weighboat_home()
 
-    arm.disconnect()
+        # return home
+        print("\n=== RETURNING HOME ===")
 
-    print("\n=== PROCESS COMPLETE ===")
+        move_cartesian(INITIAL_POS)
 
+        print("\n=== PROCESS COMPLETE ===")
 
-if __name__ == "__main__":
-    main()
+    except Exception as e:
+
+        print(f"\nERROR: {e}")
+
+        arm.clean_error()
+
+    finally:
+
+        arm.disconnect()
+
+        print("\nRobot disconnected")
+
