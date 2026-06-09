@@ -1,4 +1,6 @@
 import time
+import serial
+import re
 
 try:
     from xarm.wrapper import XArmAPI
@@ -274,6 +276,29 @@ def retract(pos, rpy=DEFAULT_RPY):
         [pos[0], pos[1], SAFE_Z],
         rpy=rpy
     )
+    
+def get_scale_weight():
+
+    """
+    Returns current weight in grams
+    """
+
+    while True:
+
+        line = scale.readline().decode(
+            errors="ignore"
+        ).strip()
+
+        match = re.search(
+            r'(-?\d+\.\d+)g',
+            line
+        )
+
+        if match:
+
+            return float(
+                match.group(1)
+            )
 
 # =========================================================
 # PICK WEIGH BOAT
@@ -560,7 +585,65 @@ def pour_into_reactor():
 # =========================================================
 # ADD POWDER LOOP
 # =========================================================
+def add_powder_until_target():
 
+    empty_weight = get_scale_weight()
+
+    print(
+        f"\nEmpty weight: "
+        f"{empty_weight:.2f} g"
+    )
+
+    desired_powder = float(
+        input(
+            "\nDesired powder amount (g): "
+        )
+    )
+
+    target_weight = (
+        empty_weight
+        + desired_powder
+    )
+
+    print(
+        f"\nTarget total weight:"
+        f" {target_weight:.2f} g"
+    )
+
+    while True:
+
+        current_weight = (
+            get_scale_weight()
+        )
+
+        print(
+            f"\nCurrent:"
+            f" {current_weight:.2f} g"
+        )
+
+        if current_weight >= target_weight:
+
+            print(
+                "\nTarget reached."
+            )
+
+            break
+
+        print(
+            "\nScooping powder..."
+        )
+
+        pickup_scoop()
+
+        scoop_powder()
+
+        release_powder()
+
+
+        time.sleep(3)
+        
+    return_scoop
+    
 def add_powder():
 
     while True:
@@ -631,20 +714,13 @@ def main():
         place_weighboat_on_scale()
 
         # scoop workflow
-        pickup_scoop()
-
-        scoop_powder()
-
-        release_powder()
-
-        return_scoop()
 
         print("\n=== WAITING FOR SCALE READING ===")
 
         time.sleep(1)
 
         # ask user if more powder should be added
-        add_powder()
+        add_powder_until_target()
 
         # return home
         print("\n=== RETURNING HOME ===")
