@@ -13,6 +13,14 @@ except ImportError:
 
 ARM_IP = "192.168.1.206"
 
+SCALE_PORT = "COM19"
+
+scale = serial.Serial(
+    port=SCALE_PORT,
+    baudrate=9600,
+    timeout=1
+)
+
 # =========================================================
 # SPEEDS
 # =========================================================
