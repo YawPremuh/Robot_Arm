@@ -12,7 +12,6 @@ except ImportError:
 # =========================================================
 
 ARM_IP = "192.168.1.206"
-
 SCALE_PORT = "COM19"
 
 scale = serial.Serial(
@@ -51,9 +50,11 @@ POWDER_RELEASE_POS = [-286.1, -277.0, 200]
 
 POWDER_POUR_POS = [220.6, -326.6, 287]
 
+REGRASP_POS = [-285.0, -183.3, 84.9]
+
 REACTOR_FUNNEL_POS = [403.6, 85.6, 704.5]
 
-REACTOR_APPROACH = [ 403.6, 85.6, 780.0]
+REACTOR_APPROACH = [ 390, 85.6, 780.0]
 
 # =========================================================
 # SCOOP SAFETY
@@ -77,6 +78,8 @@ RELEASE_RPY = [180.0, 0.0, -87.9]
 POWDER_RELEASE_RPY = [-178.5, -2, 2.1]
 
 POUR_BACK_RPY = [180.0, -35.0, -87.9]
+
+REGRASP_RPY = [-114.2, 87.7, 160.1]
 
 REACTOR_APPROACH_RPY = [106.4, 89.6, 161.9]
 
@@ -115,6 +118,15 @@ REACTOR_JOINTS = [
     103.3
 ]
 
+REGRASP_JOINTS = [
+    -194.7,
+    27.1,
+    -34.5,
+    72.4,
+    91.0,
+    5.7
+]
+
 # =========================================================
 # GRIPPER VALUES
 # =========================================================
@@ -124,8 +136,8 @@ GRIPPER_PICK = 200
 GRIPPER_RELEASE = 850
 
 # scoop
-GRIPPER_PICK_SCOOP = 715
-GRIPPER_OPEN_SCOOP = 450
+GRIPPER_PICK_SCOOP = 717
+GRIPPER_OPEN_SCOOP = 500
 GRIPPER_RELEASE_SCOOP = 850
 
 # =========================================================
@@ -284,18 +296,18 @@ def retract(pos, rpy=DEFAULT_RPY):
         [pos[0], pos[1], SAFE_Z],
         rpy=rpy
     )
-    
+
 def get_scale_weight():
 
-    """
-    Returns current weight in grams
-    """
+    scale.reset_input_buffer()
 
     while True:
 
-        line = scale.readline().decode(
-            errors="ignore"
-        ).strip()
+        line = (
+            scale.readline()
+            .decode(errors="ignore")
+            .strip()
+        )
 
         match = re.search(
             r'(-?\d+\.\d+)g',
@@ -307,7 +319,26 @@ def get_scale_weight():
             return float(
                 match.group(1)
             )
+            
+def get_stable_weight(samples=5):
 
+    readings = []
+
+    while len(readings) < samples:
+
+        try:
+
+            weight = get_scale_weight()
+
+            readings.append(weight)
+
+        except Exception:
+
+            pass
+
+        time.sleep(0.3)
+
+    return sum(readings) / len(readings)
 # =========================================================
 # PICK WEIGH BOAT
 # =========================================================
@@ -354,6 +385,7 @@ def place_weighboat_on_scale():
     retract(SCALE_POS)
 
     print("\n=== WEIGH BOAT PLACED SAFELY ===")
+    
 
 # =========================================================
 # REGRASP WEIGH BOAT
@@ -365,19 +397,19 @@ def regrasp_weighboat_from_scale():
 
     # first move high above scale
     move_cartesian([
-        SCALE_POS[0],
-        SCALE_POS[1],
+        REGRASP_POS[0],
+        REGRASP_POS[1],
         SAFE_Z
     ])
 
- 
+    move_joints(REGRASP_JOINTS)
 
     time.sleep(1)
 
     # descend vertically with the exact orientation
     move_cartesian(
-        SCALE_POS,
-        rpy=RELEASE_RPY,
+        REGRASP_POS,
+        rpy=REGRASP_RPY,
         speed=70,
         accel=40
     )
@@ -391,11 +423,11 @@ def regrasp_weighboat_from_scale():
     # lift straight up
     move_cartesian(
         [
-            SCALE_POS[0],
-            SCALE_POS[1],
+            REGRASP_POS[0],
+            REGRASP_POS[1],
             SAFE_Z
         ],
-        rpy=RELEASE_RPY
+        rpy=REGRASP_RPY
     )
 
     print("\n=== WEIGH BOAT REGRASPED ===")
@@ -595,7 +627,11 @@ def pour_into_reactor():
 # =========================================================
 def add_powder_until_target():
 
-    empty_weight = get_scale_weight()
+    print("\nWaiting for scale stabilization...")
+
+    time.sleep(5)
+
+    empty_weight = get_stable_weight()
 
     print(
         f"\nEmpty weight: "
@@ -609,49 +645,44 @@ def add_powder_until_target():
     )
 
     target_weight = (
-        empty_weight
-        + desired_powder
+        empty_weight +
+        desired_powder
     )
 
     print(
-        f"\nTarget total weight:"
-        f" {target_weight:.2f} g"
+        f"\nTarget total weight: "
+        f"{target_weight:.2f} g"
     )
+
+    # pick scoop only once
+    pickup_scoop()
 
     while True:
 
-        current_weight = (
-            get_scale_weight()
-        )
+        current_weight = get_stable_weight()
 
         print(
-            f"\nCurrent:"
-            f" {current_weight:.2f} g"
+            f"\nCurrent: "
+            f"{current_weight:.2f} g"
         )
 
         if current_weight >= target_weight:
 
-            print(
-                "\nTarget reached."
-            )
+            print("\nTarget reached.")
 
             break
 
-        print(
-            "\nScooping powder..."
-        )
-
-        pickup_scoop()
+        print("\nScooping more powder...")
 
         scoop_powder()
 
         release_powder()
 
-
         time.sleep(3)
-        
-    return_scoop
-    
+
+    return_scoop()
+
+
 def add_powder():
 
     while True:
@@ -725,10 +756,18 @@ def main():
 
         print("\n=== WAITING FOR SCALE READING ===")
 
-        time.sleep(1)
+        time.sleep(2)
 
         # ask user if more powder should be added
         add_powder_until_target()
+        
+        regrasp_weighboat_from_scale()
+        
+        move_to_reactor()
+        
+        pour_into_reactor()
+        
+        return_scoop()
 
         # return home
         print("\n=== RETURNING HOME ===")
