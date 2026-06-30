@@ -734,6 +734,33 @@ def add_powder():
             print("'no add'")
 
 # =========================================================
+# RETURN WEIGH BOAT HOME
+# =========================================================
+def return_weighboat_home():
+
+    print("\n=== RETURNING WEIGH BOAT HOME ===")
+
+    safe_above(WEIGH_BOAT_POS, DEFAULT_RPY)
+
+    descend(
+        WEIGH_BOAT_POS,
+        rpy=DEFAULT_RPY
+    )
+
+    time.sleep(1)
+
+    gripper(GRIPPER_RELEASE)
+
+    time.sleep(1)
+
+    retract(
+        WEIGH_BOAT_POS,
+        rpy=DEFAULT_RPY
+    )
+
+    print("\n=== WEIGH BOAT STORED ===")
+
+# =========================================================
 # MAIN
 # =========================================================
 
@@ -767,7 +794,7 @@ def main():
         
         pour_into_reactor()
         
-        return_scoop()
+        return_weighboat_home()
 
         # return home
         print("\n=== RETURNING HOME ===")
