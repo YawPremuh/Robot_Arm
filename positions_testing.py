@@ -36,17 +36,17 @@ SAFE_Z = 260
 # POSITIONS
 # =========================================================
 
-INITIAL_POS = [-64.8, -245.5, 301.5]
+INITIAL_POS = [-407.7, -245.5, 301.5]
 
 WEIGH_BOAT_POS = [-63.2, -555.5, 11]
 
-SCALE_POS = [-627.9, -183, 86]
+SCALE_POS = [-627.9, -183, 90]
 
-POWDER_POS = [-117.2, -322.4, 130]
+POWDER_POS = [-170.2, -322.4, 130]
 
-SCOOP_POS = [-385, -244, 94.9]
+SCOOP_POS = [-401.2, -253.4, 96.2]
 
-#POWDER_RELEASE_POS = [-286.1, -277.0, 200]
+POWDER_RELEASE_POS = [-622.1, -277.4, 219.4]
 
 # POWDER_POUR_POS = [220.6, -326.6, 287]
 
@@ -71,11 +71,11 @@ SCOOP_APPROACH_Z = SCOOP_POS[2] + SCOOP_HEIGHT + 120
 
 DEFAULT_RPY = [0.0, 180.0, 0.0]
 
-SCOOP_RPY = [-178.5, -2.0, 91.4]
+SCOOP_RPY = [-179.6, 0.2, 92.3]
 
 RELEASE_RPY = [180.0, 0.0, -87.9]
 
-POWDER_RELEASE_RPY = [-178.5, -2, 2.1]
+POWDER_RELEASE_RPY = [-179.7, 3.8, 92.1]
 
 POUR_BACK_RPY = [180.0, -35.0, -87.9]
 
@@ -92,12 +92,12 @@ POUR_RPY = [60.0, 89.6, 161.9]
 # =========================================================
 
 SCOOP_JOINTS = [
-    -99,
-    -36.7,
-    -11.7,
-    -1.2,
-    50.1,
-    171.2
+    -148.1,
+    8.4,
+    -54.2,
+    0.4,
+    45.1,
+    120
 ]
 
 RELEASE_JOINTS = [
@@ -132,7 +132,7 @@ REGRASP_JOINTS = [
 # =========================================================
 
 # weigh boat
-GRIPPER_PICK = 200
+GRIPPER_PICK = 180
 GRIPPER_RELEASE = 850
 
 # scoop
@@ -443,16 +443,16 @@ def pickup_scoop():
 
     # move high above scoop BEFORE rotating
     move_cartesian(
-        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z]
+        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z],
+        rpy=SCOOP_RPY
     )
 
     # rotate safely above scoop
     move_joints(SCOOP_JOINTS)
 
-    time.sleep(1)
+    time.sleep(3)
 
     
-
     # grab scoop
     gripper(GRIPPER_PICK_SCOOP)
 
