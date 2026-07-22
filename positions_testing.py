@@ -38,23 +38,23 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [279.7, -555.5, 11]
+WEIGH_BOAT_POS = [-63.2, -555.5, 11]
 
-SCALE_POS = [-285, -183, 86]
+SCALE_POS = [-627.9, -183, 86]
 
-POWDER_POS = [193.4, -322.4, 130]
+POWDER_POS = [-117.2, -322.4, 130]
 
-SCOOP_POS = [-42.1, -244, 94.9]
+SCOOP_POS = [-385, -244, 94.9]
 
-POWDER_RELEASE_POS = [-286.1, -277.0, 200]
+#POWDER_RELEASE_POS = [-286.1, -277.0, 200]
 
-POWDER_POUR_POS = [220.6, -326.6, 287]
+# POWDER_POUR_POS = [220.6, -326.6, 287]
 
-REGRASP_POS = [-285.0, -183.3, 84.9]
+# REGRASP_POS = [-285.0, -183.3, 84.9]
 
-REACTOR_FUNNEL_POS = [463.6, 124.6, 778.4]
+# REACTOR_FUNNEL_POS = [403.6, 85.6, 704.5]
 
-REACTOR_APPROACH = [412, 21, 780.0]
+# REACTOR_APPROACH = [ 390, 85.6, 780.0]
 
 # =========================================================
 # SCOOP SAFETY
@@ -81,11 +81,11 @@ POUR_BACK_RPY = [180.0, -35.0, -87.9]
 
 REGRASP_RPY = [-114.2, 87.7, 160.1]
 
-REACTOR_APPROACH_RPY = [98.7, 89.6, 145.6]
+REACTOR_APPROACH_RPY = [106.4, 89.6, 161.9]
 
-REACTOR_FUNNEL_RPY = [98.7, 89.6, 145.6]
+REACTOR_FUNNEL_RPY = [106.4, 89.6, 161.9]
 
-POUR_RPY = [85.8, 8.8, 178]
+POUR_RPY = [60.0, 89.6, 161.9]
 
 # =========================================================
 # JOINT CONFIGURATIONS
@@ -110,12 +110,12 @@ RELEASE_JOINTS = [
 ]
 
 REACTOR_JOINTS = [
-    -17.9,
-    26.6,
-    -144.4,
-    104.4,
-    108,
-    124.1
+    25.1,
+    -31.6,
+    -70.3,
+    89.6,
+    80.3,
+    103.3
 ]
 
 REGRASP_JOINTS = [
@@ -608,7 +608,7 @@ def pour_into_reactor():
         REACTOR_FUNNEL_POS,
         rpy=POUR_RPY,
         speed=8,
-        accel=15    
+        accel=15
     )
 
     time.sleep(3)
