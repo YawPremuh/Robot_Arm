@@ -52,9 +52,9 @@ POWDER_POUR_POS = [220.6, -326.6, 287]
 
 REGRASP_POS = [-590.9, -200.8, 90]
 
-# REACTOR_FUNNEL_POS = [403.6, 85.6, 704.5]
+REACTOR_FUNNEL_POS = [91.2, 179.9, 735.5]
 
-# REACTOR_APPROACH = [ 390, 85.6, 780.0]
+REACTOR_APPROACH = [86.4 , 190.4, 695.2]
 
 # =========================================================
 # SCOOP SAFETY
@@ -81,9 +81,9 @@ POUR_BACK_RPY = [180.0, -35.0, -87.9]
 
 REGRASP_RPY = [-24.6, 88.1, -114.6]
 
-REACTOR_APPROACH_RPY = [106.4, 89.6, 161.9]
+REACTOR_APPROACH_RPY = [-140.9, 64.5, -84.9]
 
-REACTOR_FUNNEL_RPY = [106.4, 89.6, 161.9]
+REACTOR_FUNNEL_RPY = [-158, 41.9, -97.7]
 
 POUR_RPY = [60.0, 89.6, 161.9]
 
@@ -109,14 +109,14 @@ RELEASE_JOINTS = [
     15.9
 ]
 
-# REACTOR_JOINTS = [
- #   25.1,
- #   -31.6,
-  #  -70.3,
-   # 89.6,
-    # 80.3,
-    # 103.3
-#]
+REACTOR_JOINTS = [
+   -360,
+   -40.1,
+   -116,
+    41.6,
+    116.1,
+    138.8
+]
 
 REGRASP_JOINTS = [
     -185.9,
