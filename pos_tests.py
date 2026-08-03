@@ -54,7 +54,9 @@ REGRASP_POS = [-590.9, -200.8, 90]
 
 REACTOR_FUNNEL_POS = [91.2, 179.9, 735.5]
 
-REACTOR_APPROACH = [86.4 , 190.4, 695.2]
+REACTOR_APPROACH = [86.4, 190.4, 695.2]
+
+TECAN_APPROACH_POS = [532.5, -732.6, 271.3]
 
 # =========================================================
 # SCOOP SAFETY
@@ -87,6 +89,8 @@ REACTOR_FUNNEL_RPY = [-158, 41.9, -97.7]
 
 POUR_RPY = [60.0, 89.6, 161.9]
 
+TECAN_APPROACH_RPY = [170.7, 75, 115.6]
+
 # =========================================================
 # JOINT CONFIGURATIONS
 # =========================================================
@@ -110,9 +114,9 @@ RELEASE_JOINTS = [
 ]
 
 REACTOR_JOINTS = [
-   -360,
-   -40.1,
-   -116,
+    -360,
+    -40.1,
+    -116,
     41.6,
     116.1,
     138.8
@@ -139,6 +143,16 @@ GRIPPER_RELEASE = 850
 GRIPPER_PICK_SCOOP = 717
 GRIPPER_OPEN_SCOOP = 500
 GRIPPER_RELEASE_SCOOP = 850
+
+# test tube
+GRIPPER_PICK_TEST_TUBE = 172
+GRIPPER_RELEASE_TEST_TUBE = 850
+
+# =========================================================
+# TEST TUBE POSITIONS
+# =========================================================
+
+TEST_TUBE_1 = [587.7, -674.7, 204]
 
 # =========================================================
 # INITIALIZE ARM
@@ -202,6 +216,7 @@ else:
 # =========================================================
 # HELPER FUNCTIONS
 # =========================================================
+
 
 def move_cartesian(
     pos,
@@ -297,6 +312,7 @@ def retract(pos, rpy=DEFAULT_RPY):
         rpy=rpy
     )
 
+
 def get_scale_weight():
 
     scale.reset_input_buffer()
@@ -319,7 +335,8 @@ def get_scale_weight():
             return float(
                 match.group(1)
             )
-            
+
+
 def get_stable_weight(samples=5):
 
     readings = []
@@ -343,6 +360,7 @@ def get_stable_weight(samples=5):
 # PICK WEIGH BOAT
 # =========================================================
 
+
 def pickup_weighboat():
 
     print("\n=== PICKING WEIGH BOAT ===")
@@ -361,6 +379,7 @@ def pickup_weighboat():
 # PLACE WEIGH BOAT ON SCALE
 # =========================================================
 
+
 def place_weighboat_on_scale():
 
     print("\n=== PLACING WEIGH BOAT ON SCALE ===")
@@ -368,12 +387,12 @@ def place_weighboat_on_scale():
     safe_above(
         SCALE_POS,
         RELEASE_RPY
-        )
+    )
 
-    descend(    
+    descend(
         SCALE_POS,
         rpy=RELEASE_RPY
-        )
+    )
 
     time.sleep(1)
 
@@ -385,7 +404,7 @@ def place_weighboat_on_scale():
     retract(SCALE_POS)
 
     print("\n=== WEIGH BOAT PLACED SAFELY ===")
-    
+
 
 # =========================================================
 # REGRASP WEIGH BOAT
@@ -435,6 +454,7 @@ def regrasp_weighboat_from_scale():
 # PICKUP SCOOP
 # =========================================================
 
+
 def pickup_scoop():
 
     print("\n=== PICKING SCOOP ===")
@@ -452,7 +472,6 @@ def pickup_scoop():
 
     time.sleep(3)
 
-    
     # grab scoop
     gripper(GRIPPER_PICK_SCOOP)
 
@@ -467,6 +486,7 @@ def pickup_scoop():
 # =========================================================
 # SCOOP POWDER
 # =========================================================
+
 
 def scoop_powder():
 
@@ -500,11 +520,10 @@ def scoop_powder():
 # RELEASE POWDER INTO WEIGH BOAT
 # =========================================================
 
+
 def release_powder():
 
     print("\n=== RELEASING POWDER INTO WEIGH BOAT ===")
-
-    
 
     safe_above(
         POWDER_RELEASE_POS,
@@ -533,13 +552,12 @@ def release_powder():
 # RETURN SCOOP
 # =========================================================
 
+
 def return_scoop():
 
     print("\n=== RETURNING SCOOP ===")
 
     move_joints(SCOOP_JOINTS)
-
-    
 
     descend(
         SCOOP_POS,
@@ -557,6 +575,7 @@ def return_scoop():
 # =========================================================
 # MOVE WEIGH BOAT TO REACTOR
 # =========================================================
+
 
 def move_to_reactor():
 
@@ -582,7 +601,8 @@ def move_to_reactor():
     )
 
     print("\n=== AT REACTOR ===")
-    
+
+
 def pour_into_reactor():
 
     print("\n=== POURING INTO REACTOR ===")
@@ -625,6 +645,8 @@ def pour_into_reactor():
 # =========================================================
 # ADD POWDER LOOP
 # =========================================================
+
+
 def add_powder_until_target():
 
     print("\nWaiting for scale stabilization...")
@@ -711,7 +733,6 @@ def add_powder():
 
             time.sleep(5)
 
-
         # -------------------------------------------------
         # MOVE TO REACTOR
         # -------------------------------------------------
@@ -736,6 +757,8 @@ def add_powder():
 # =========================================================
 # RETURN WEIGH BOAT HOME
 # =========================================================
+
+
 def return_weighboat_home():
 
     print("\n=== RETURNING WEIGH BOAT HOME ===")
@@ -761,8 +784,58 @@ def return_weighboat_home():
     print("\n=== WEIGH BOAT STORED ===")
 
 # =========================================================
+# GRAB TEST TUBES FROM TECAN EVO
+# =========================================================
+
+
+ORIGIN_X, ORIGIN_Y, ORIGIN_Z = TEST_TUBE_1
+
+SPACING_X = 38.1
+SPACING_Y = 25.4
+NUM_COLUMNS = 8
+
+
+def get_tube_position(row: int, tube: int):
+    column_idx = tube - 1
+    row_idx = row - 1
+
+    x = ORIGIN_X + column_idx * SPACING_X
+    y = ORIGIN_Y + row_idx * SPACING_Y
+    z = ORIGIN_Z
+
+    return (x, y, z)
+
+
+def grab_test_tubes():
+
+    print("\n=== GRABBING TEST TUBES FROM TECAN EVO ===")
+
+    time.sleep(1)
+
+    row_input = input("What row do you want to grab? (1 or 2): ")
+    tube_input = input("What test tube do you want to grab? (1 - 8): ")
+
+    TARGET_XYZ = get_tube_position(int(row_input), int(tube_input))
+
+    move_cartesian(
+        TECAN_APPROACH_POS,
+        rpy=TECAN_APPROACH_RPY
+    )
+
+    move_cartesian(
+        TARGET_XYZ,
+        rpy=[176.5, 55, 132.1]
+    )
+
+    move_cartesian(
+        [607.1, -673.8, 321.7],
+        rpy=[-177.4, 80.2, 134.3]
+    )
+
+# =========================================================
 # MAIN
 # =========================================================
+
 
 def main():
 
@@ -787,14 +860,16 @@ def main():
 
         # ask user if more powder should be added
         add_powder_until_target()
-        
+
         regrasp_weighboat_from_scale()
-        
+
         move_to_reactor()
-        
+
         pour_into_reactor()
-        
+
         return_weighboat_home()
+
+        grab_test_tubes()
 
         # return home
         print("\n=== RETURNING HOME ===")
@@ -814,6 +889,7 @@ def main():
         arm.disconnect()
 
         print("\nRobot disconnected")
+
 
 if __name__ == "__main__":
     main()
