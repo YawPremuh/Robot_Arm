@@ -36,11 +36,11 @@ SAFE_Z = 260
 # POSITIONS
 # =========================================================
 
-INITIAL_POS = [-407.7, -245.5, 301.5]
+INITIAL_POS = [-64.8, -245.5, 301.5]
 
 WEIGH_BOAT_POS = [-63.2, -555.5, 11]
 
-SCALE_POS = [-600.9, -183, 90]
+SCALE_POS = [-600.9, -183, 87]
 
 POWDER_POS = [-160.2, -322.4, 130]
 
@@ -50,9 +50,9 @@ POWDER_RELEASE_POS = [-600.9, -270.4, 219.4]
 
 POWDER_POUR_POS = [220.6, -326.6, 287]
 
-REGRASP_POS = [-590.9, -200.8, 90]
+REGRASP_POS = [-590.9, -200.8, 85]
 
-REACTOR_FUNNEL_POS = [125.5, 275.7, 718.4]
+REACTOR_FUNNEL_POS = [120, 345.9, 725]
 
 REACTOR_APPROACH = [68.7, 280.7, 684.1]
 
@@ -87,9 +87,9 @@ REGRASP_RPY = [-24.6, 88.1, -114.6]
 
 REACTOR_APPROACH_RPY = [-89.9, 79, -2.2]
 
-REACTOR_FUNNEL_RPY = [-110.1, 83.2, -25.8]
+REACTOR_FUNNEL_RPY = [89.8, 88.7, 170.5]
 
-# POUR_RPY = [60.0, 89.6, 161.9]
+POUR_RPY = [89.9, -18.6, 170.6]
 
 TECAN_APPROACH_RPY = [170.7, 75, 115.6]
 
@@ -138,7 +138,7 @@ REGRASP_JOINTS = [
 # =========================================================
 
 # weigh boat
-GRIPPER_PICK = 180
+GRIPPER_PICK = 170
 GRIPPER_RELEASE = 850
 
 # scoop
@@ -248,7 +248,7 @@ def move_joints(joints):
     code = arm.set_servo_angle(
         angle=joints,
         is_radian=False,
-        speed=20,
+        speed=30,
         wait=True
     )
 
@@ -288,7 +288,7 @@ def safe_above(pos, rpy=DEFAULT_RPY):
 def descend(
     pos,
     rpy=DEFAULT_RPY,
-    speed=SLOW_SPEED,
+    speed=FAST_SPEED,
     accel=SLOW_ACCEL
 ):
 
@@ -490,7 +490,7 @@ def scoop_powder():
     move_cartesian(
         POWDER_POS,
         rpy=SCOOP_RPY,
-        speed=8,
+        speed=40,
         accel=30
     )
 
@@ -547,9 +547,10 @@ def return_scoop():
 
     print("\n=== RETURNING SCOOP ===")
 
-    move_joints(SCOOP_JOINTS)
-
-    
+    safe_above(
+        SCOOP_POS,
+        SCOOP_RPY
+    )
 
     descend(
         SCOOP_POS,
@@ -595,8 +596,8 @@ def move_to_reactor():
     move_cartesian(
         REACTOR_FUNNEL_POS,
         rpy=REACTOR_FUNNEL_RPY,
-        speed=15,
-        accel=40
+        speed=20,
+        accel=25
     )
 
     print("\n=== AT REACTOR ===")
@@ -605,30 +606,35 @@ def pour_into_reactor():
 
     print("\n=== POURING INTO REACTOR ===")
 
-    intermediate_1 = [-146.6, 56.5, -77.1]
-
     move_cartesian(
-        [REACTOR_FUNNEL_POS[0], REACTOR_FUNNEL_POS[1], REACTOR_FUNNEL_POS[2] + 30.3],
-        rpy=intermediate_1,
+        REACTOR_FUNNEL_POS,
+        rpy=POUR_RPY,
         speed=20,
-        accel=40
+        accel=25
     )
 
-  #  move_cartesian(
-   #     REACTOR_FUNNEL_POS,
-   #     rpy=POUR_RPY,
-    #    speed=8,
-    #    accel=15
-    #)
-
-    time.sleep(3)
+    time.sleep(1)
 
     move_cartesian(
         REACTOR_FUNNEL_POS,
         rpy=REACTOR_FUNNEL_RPY,
-        speed=8,
-        accel=15
+        speed=40,
+        accel=30
     )
+
+    time.sleep(3)
+
+    move_cartesian(REACTOR_APPROACH, REACTOR_APPROACH_RPY)
+
+    time.sleep(1)
+
+    move_cartesian([-130.3, 259.6, 683.6], rpy = [-90.4, 79.1, 37.9])
+
+    time.sleep(1)
+    
+    move_cartesian([SCALE_POS[0],SCALE_POS[1], SAFE_Z], rpy=REGRASP_RPY)
+    
+    time.sleep(1)
 
     print("\n=== POUR COMPLETE ===")
 
@@ -684,11 +690,13 @@ def add_powder_until_target():
 
         print("\nScooping more powder...")
 
+        POWDER_POS[2] -= 2
+        
         scoop_powder()
 
         release_powder()
 
-        time.sleep(3)
+        time.sleep(2)
 
     return_scoop()
 
@@ -750,20 +758,26 @@ def return_weighboat_home():
 
     print("\n=== RETURNING WEIGH BOAT HOME ===")
 
-    safe_above(WEIGH_BOAT_POS, DEFAULT_RPY)
-
     descend(
-        WEIGH_BOAT_POS,
-        rpy=DEFAULT_RPY
+        SCALE_POS, RPY=REGRASP_RPY
     )
-
-    time.sleep(1)
 
     gripper(GRIPPER_RELEASE)
 
+    safe_above(SCALE_POS)
+
+    move_cartesian(SCALE_POS, RELEASE_RPY)
+
     time.sleep(1)
 
-    retract(
+    gripper(GRIPPER_PICK)
+
+    time.sleep(1)
+
+    safe_above(
+        WEIGH_BOAT_POS)
+
+    move_cartesian(
         WEIGH_BOAT_POS,
         rpy=DEFAULT_RPY
     )
