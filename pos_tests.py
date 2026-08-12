@@ -759,7 +759,7 @@ def return_weighboat_home():
     print("\n=== RETURNING WEIGH BOAT HOME ===")
 
     descend(
-        SCALE_POS, RPY=REGRASP_RPY
+        SCALE_POS, rpy=REGRASP_RPY
     )
 
     gripper(GRIPPER_RELEASE)
