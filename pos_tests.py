@@ -38,7 +38,7 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [-63.2, -546.9, -1]
+WEIGH_BOAT_POS = [-63.2, -546.9, -0.7]
 
 SCALE_POS = [-600.9, -183, 87.5]
 
@@ -624,6 +624,8 @@ def pour_into_reactor():
 
     time.sleep(3)
 
+    print("\n=== POUR COMPLETE ===")
+
     move_cartesian(REACTOR_APPROACH, REACTOR_APPROACH_RPY)
 
     time.sleep(1)
@@ -636,7 +638,7 @@ def pour_into_reactor():
     
     time.sleep(1)
 
-    print("\n=== POUR COMPLETE ===")
+    )
 
 # =========================================================
 # ADD POWDER LOOP
