@@ -638,7 +638,6 @@ def pour_into_reactor():
     
     time.sleep(1)
 
-    )
 
 # =========================================================
 # ADD POWDER LOOP
