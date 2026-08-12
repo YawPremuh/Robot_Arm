@@ -38,9 +38,9 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [-63.2, -555.5, 11]
+WEIGH_BOAT_POS = [-63.2, -546.9, -1]
 
-SCALE_POS = [-600.9, -183, 87]
+SCALE_POS = [-600.9, -183, 87.5]
 
 POWDER_POS = [-160.2, -322.4, 130]
 
@@ -50,7 +50,7 @@ POWDER_RELEASE_POS = [-600.9, -270.4, 219.4]
 
 POWDER_POUR_POS = [220.6, -326.6, 287]
 
-REGRASP_POS = [-590.9, -200.8, 85]
+REGRASP_POS = [-590.9, -197, 85]
 
 REACTOR_FUNNEL_POS = [120, 345.9, 725]
 
@@ -142,7 +142,7 @@ GRIPPER_PICK = 170
 GRIPPER_RELEASE = 850
 
 # scoop
-GRIPPER_PICK_SCOOP = 717
+GRIPPER_PICK_SCOOP = 710
 GRIPPER_OPEN_SCOOP = 500
 GRIPPER_RELEASE_SCOOP = 850
 
@@ -574,11 +574,11 @@ def move_to_reactor():
     print("\n=== MOVING TO REACTOR ===")
 
     # move to known safe reactor configuration
-    move_cartesian([-600.7, -200.8, 494.5], rpy=[-25.3, 88.1, -115.2])
+    move_cartesian([-600.7, -200.8, 494.5], rpy=[-25.3, 88.1, -115.2], speed=40, accel=30)
 
     time.sleep(1)
 
-    move_cartesian([-315, 134.2, 653.6], rpy=[-89.6, 79.3, 110.2])
+    move_cartesian([-315, 134.2, 653.6], rpy=[-89.6, 79.3, 110.2], speed=40, accel=30)
 
     time.sleep(1)
 
