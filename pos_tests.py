@@ -782,6 +782,10 @@ def return_weighboat_home():
         rpy=DEFAULT_RPY
     )
 
+    gripper(GRIPPER_RELEASE)
+
+    time.sleep(1)
+
     print("\n=== WEIGH BOAT STORED ===")
 
     # =========================================================
