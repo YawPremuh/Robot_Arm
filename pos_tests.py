@@ -874,6 +874,8 @@ def main():
         
         return_weighboat_home()
 
+        grab_test_tubes()
+
         # return home
         print("\n=== RETURNING HOME ===")
 
