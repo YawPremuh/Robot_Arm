@@ -56,9 +56,9 @@ REACTOR_FUNNEL_POS = [120, 345.9, 725]
 
 REACTOR_APPROACH = [68.7, 280.7, 684.1]
 
-TECAN_APPROACH_POS = [411.3, -633.7, 277.6]
+TECAN_APPROACH_POS = [535.5, -661.3, 215.1]
 
-TEST_TUBE_1 = [587.7, -674.7, 204]
+TEST_TUBE_1 = [576.6, -683.9, 206.1]
 
 # =========================================================
 # SCOOP SAFETY
@@ -91,7 +91,7 @@ REACTOR_FUNNEL_RPY = [89.8, 88.7, 170.5]
 
 POUR_RPY = [89.9, -18.6, 170.6]
 
-TECAN_APPROACH_RPY = [170.2, 59.5, 111.1]
+TECAN_APPROACH_RPY = [-91, 81.9, -94.2]
 
 # =========================================================
 # JOINT CONFIGURATIONS
@@ -147,7 +147,7 @@ GRIPPER_OPEN_SCOOP = 500
 GRIPPER_RELEASE_SCOOP = 850
 
 #test tube
-GRIPPER_PICK_TEST_TUBE = 155
+GRIPPER_PICK_TEST_TUBE = 125
 GRIPPER_RELEASE_TEST_TUBE = 850
 
 # =========================================================
@@ -828,7 +828,7 @@ def grab_test_tubes():
         rpy=TECAN_APPROACH_RPY
     )
 
-    gripper(GRIPPER_PICK_TEST_TUBE)
+    gripper(250)
 
     time.sleep(1)
 
@@ -836,6 +836,8 @@ def grab_test_tubes():
         TARGET_XYZ,
         rpy=[176.5, 55, 132.1]
     )
+    
+    gripper(GRIPPER_PICK_TEST_TUBE)
 
     time.sleep(1)
 
@@ -856,7 +858,7 @@ def main():
 
         time.sleep(2)
         # home
-      #  move_cartesian(INITIAL_POS)
+        move_cartesian(INITIAL_POS)
 
         # place weigh boat on scale
        # pickup_weighboat()
