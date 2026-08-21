@@ -58,7 +58,7 @@ REACTOR_APPROACH = [68.7, 280.7, 684.1]
 
 TECAN_APPROACH_POS = [535.5, -661.3, 215.1]
 
-TEST_TUBE_1 = [576.6, -683.9, 206.1]
+TEST_TUBE_1 = [576.6, -683.9, 204]
 
 # =========================================================
 # SCOOP SAFETY
@@ -72,6 +72,8 @@ SCOOP_APPROACH_Z = SCOOP_POS[2] + SCOOP_HEIGHT + 120
 # =========================================================
 # ORIENTATIONS
 # =========================================================
+
+INITIAL_RPY = [-178.5, -2, 90.7]
 
 DEFAULT_RPY = [0.0, 180.0, 0.0]
 
@@ -789,7 +791,7 @@ def return_weighboat_home():
 
     print("\n=== WEIGH BOAT STORED ===")
 
-    # =========================================================
+# =========================================================
 # GRAB TEST TUBES FROM TECAN EVO
 # =========================================================
 
@@ -846,6 +848,31 @@ def grab_test_tubes():
         rpy=[-177.4, 80.2, 134.3]
     )
 
+def pour_tube():
+
+    print("\n=== POURING TEST TUBE INTO REACTOR ===")
+
+    move_to_reactor()
+    
+    time.sleep(1)
+    
+     # move above funnel
+    move_cartesian(
+            REACTOR_APPROACH,
+            rpy=REACTOR_APPROACH_RPY
+        )
+    
+        # descend
+    move_cartesian(
+        REACTOR_FUNNEL_POS,
+        rpy=REACTOR_FUNNEL_RPY,
+        speed=20,
+        accel=25
+        )
+
+    pour_into_reactor()
+    
+
 # =========================================================
 # MAIN
 # =========================================================
@@ -887,7 +914,9 @@ def main():
         # return home
         print("\n=== RETURNING HOME ===")
 
-        move_cartesian(INITIAL_POS)
+        move_cartesian(INITIAL_POS, rpy=INITIAL_RPY)
+
+        pour_tube()
 
         print("\n=== PROCESS COMPLETE ===")
 
