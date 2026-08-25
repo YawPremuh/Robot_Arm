@@ -38,23 +38,27 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [279.7, -555.5, 11]
+WEIGH_BOAT_POS = [-63.2, -546.9, -0.7]
 
-SCALE_POS = [-285, -183, 86]
+SCALE_POS = [-600.9, -183, 87.5]
 
-POWDER_POS = [193.4, -322.4, 130]
+POWDER_POS = [-160.2, -322.4, 130]
 
-SCOOP_POS = [-42.1, -244, 94.9]
+SCOOP_POS = [-395.9, -242, 101.3]
 
-POWDER_RELEASE_POS = [-286.1, -277.0, 200]
+POWDER_RELEASE_POS = [-600.9, -270.4, 219.4]
 
 POWDER_POUR_POS = [220.6, -326.6, 287]
 
-REGRASP_POS = [-285.0, -183.3, 84.9]
+REGRASP_POS = [-590.9, -197, 85]
 
-REACTOR_FUNNEL_POS = [403.6, 85.6, 704.5]
+REACTOR_FUNNEL_POS = [120, 345.9, 725]
 
-REACTOR_APPROACH = [ 390, 85.6, 780.0]
+REACTOR_APPROACH = [68.7, 280.7, 684.1]
+
+TECAN_APPROACH_POS = [532.5, -732.6, 271.3]
+
+TEST_TUBE_1 = [587.7, -674.7, 204]
 
 # =========================================================
 # SCOOP SAFETY
@@ -71,33 +75,35 @@ SCOOP_APPROACH_Z = SCOOP_POS[2] + SCOOP_HEIGHT + 120
 
 DEFAULT_RPY = [0.0, 180.0, 0.0]
 
-SCOOP_RPY = [-178.5, -2.0, 91.4]
+SCOOP_RPY = [-179.9, -0.3, 96.8]
 
 RELEASE_RPY = [180.0, 0.0, -87.9]
 
-POWDER_RELEASE_RPY = [-178.5, -2, 2.1]
+POWDER_RELEASE_RPY = [178.2, 2.1, 93]
 
 POUR_BACK_RPY = [180.0, -35.0, -87.9]
 
-REGRASP_RPY = [-114.2, 87.7, 160.1]
+REGRASP_RPY = [-24.6, 88.1, -114.6]
 
-REACTOR_APPROACH_RPY = [106.4, 89.6, 161.9]
+REACTOR_APPROACH_RPY = [-89.9, 79, -2.2]
 
-REACTOR_FUNNEL_RPY = [106.4, 89.6, 161.9]
+REACTOR_FUNNEL_RPY = [89.8, 88.7, 170.5]
 
-POUR_RPY = [60.0, 89.6, 161.9]
+POUR_RPY = [89.9, -18.6, 170.6]
+
+TECAN_APPROACH_RPY = [170.7, 75, 115.6]
 
 # =========================================================
 # JOINT CONFIGURATIONS
 # =========================================================
 
 SCOOP_JOINTS = [
-    -99,
-    -36.7,
-    -11.7,
-    -1.2,
-    50.1,
-    171.2
+    -148.8,
+    6.4,
+    -52.7,
+    0,
+    46.1,
+    115
 ]
 
 RELEASE_JOINTS = [
@@ -110,21 +116,21 @@ RELEASE_JOINTS = [
 ]
 
 REACTOR_JOINTS = [
-    25.1,
-    -31.6,
-    -70.3,
-    89.6,
-    80.3,
-    103.3
-]
+   -302.7,
+   -71.2,
+   -44.6,
+   54.6,
+   38.5,
+   123.3
+ ]
 
 REGRASP_JOINTS = [
-    -194.7,
-    27.1,
-    -34.5,
-    72.4,
-    91.0,
-    5.7
+    -185.9,
+    61.2,
+    -100.4,
+    87.3,
+    95,
+    39.1
 ]
 
 # =========================================================
@@ -132,13 +138,17 @@ REGRASP_JOINTS = [
 # =========================================================
 
 # weigh boat
-GRIPPER_PICK = 200
+GRIPPER_PICK = 170
 GRIPPER_RELEASE = 850
 
 # scoop
-GRIPPER_PICK_SCOOP = 717
+GRIPPER_PICK_SCOOP = 707
 GRIPPER_OPEN_SCOOP = 500
 GRIPPER_RELEASE_SCOOP = 850
+
+#test tube
+GRIPPER_PICK_TEST_TUBE = 172
+GRIPPER_RELEASE_TEST_TUBE = 850
 
 # =========================================================
 # INITIALIZE ARM
@@ -238,7 +248,7 @@ def move_joints(joints):
     code = arm.set_servo_angle(
         angle=joints,
         is_radian=False,
-        speed=20,
+        speed=30,
         wait=True
     )
 
@@ -278,7 +288,7 @@ def safe_above(pos, rpy=DEFAULT_RPY):
 def descend(
     pos,
     rpy=DEFAULT_RPY,
-    speed=SLOW_SPEED,
+    speed=FAST_SPEED,
     accel=SLOW_ACCEL
 ):
 
@@ -443,16 +453,16 @@ def pickup_scoop():
 
     # move high above scoop BEFORE rotating
     move_cartesian(
-        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z]
+        [SCOOP_POS[0], SCOOP_POS[1], SCOOP_APPROACH_Z],
+        rpy=SCOOP_RPY
     )
 
     # rotate safely above scoop
     move_joints(SCOOP_JOINTS)
 
-    time.sleep(1)
+    time.sleep(3)
 
     
-
     # grab scoop
     gripper(GRIPPER_PICK_SCOOP)
 
@@ -480,7 +490,7 @@ def scoop_powder():
     move_cartesian(
         POWDER_POS,
         rpy=SCOOP_RPY,
-        speed=8,
+        speed=40,
         accel=30
     )
 
@@ -537,9 +547,10 @@ def return_scoop():
 
     print("\n=== RETURNING SCOOP ===")
 
-    move_joints(SCOOP_JOINTS)
-
-    
+    safe_above(
+        SCOOP_POS,
+        SCOOP_RPY
+    )
 
     descend(
         SCOOP_POS,
@@ -563,6 +574,14 @@ def move_to_reactor():
     print("\n=== MOVING TO REACTOR ===")
 
     # move to known safe reactor configuration
+    move_cartesian([-600.7, -200.8, 494.5], rpy=[-25.3, 88.1, -115.2], speed=40, accel=30)
+
+    time.sleep(1)
+
+    move_cartesian([-315, 134.2, 653.6], rpy=[-89.6, 79.3, 110.2], speed=40, accel=30)
+
+    time.sleep(1)
+
     move_joints(REACTOR_JOINTS)
 
     time.sleep(1)
@@ -577,8 +596,8 @@ def move_to_reactor():
     move_cartesian(
         REACTOR_FUNNEL_POS,
         rpy=REACTOR_FUNNEL_RPY,
-        speed=15,
-        accel=40
+        speed=20,
+        accel=25
     )
 
     print("\n=== AT REACTOR ===")
@@ -587,40 +606,38 @@ def pour_into_reactor():
 
     print("\n=== POURING INTO REACTOR ===")
 
-    intermediate_1 = [108.5, 75.0, 163.5]
-    intermediate_2 = [110.5, 55.0, 165.5]
-
-    move_cartesian(
-        REACTOR_FUNNEL_POS,
-        rpy=intermediate_1,
-        speed=8,
-        accel=15
-    )
-
-    move_cartesian(
-        REACTOR_FUNNEL_POS,
-        rpy=intermediate_2,
-        speed=8,
-        accel=15
-    )
-
     move_cartesian(
         REACTOR_FUNNEL_POS,
         rpy=POUR_RPY,
-        speed=8,
-        accel=15
+        speed=20,
+        accel=25
     )
 
-    time.sleep(3)
+    time.sleep(1)
 
     move_cartesian(
         REACTOR_FUNNEL_POS,
         rpy=REACTOR_FUNNEL_RPY,
-        speed=8,
-        accel=15
+        speed=40,
+        accel=30
     )
 
+    time.sleep(3)
+
     print("\n=== POUR COMPLETE ===")
+
+    move_cartesian(REACTOR_APPROACH, REACTOR_APPROACH_RPY)
+
+    time.sleep(1)
+
+    move_cartesian([-130.3, 259.6, 683.6], rpy = [-90.4, 79.1, 37.9])
+
+    time.sleep(1)
+    
+    move_cartesian([SCALE_POS[0],SCALE_POS[1], SAFE_Z], rpy=REGRASP_RPY)
+    
+    time.sleep(1)
+
 
 # =========================================================
 # ADD POWDER LOOP
@@ -674,11 +691,13 @@ def add_powder_until_target():
 
         print("\nScooping more powder...")
 
+        POWDER_POS[2] -= 2
+        
         scoop_powder()
 
         release_powder()
 
-        time.sleep(3)
+        time.sleep(2)
 
     return_scoop()
 
@@ -740,25 +759,84 @@ def return_weighboat_home():
 
     print("\n=== RETURNING WEIGH BOAT HOME ===")
 
-    safe_above(WEIGH_BOAT_POS, DEFAULT_RPY)
-
     descend(
+        SCALE_POS, rpy=REGRASP_RPY
+    )
+
+    gripper(GRIPPER_RELEASE)
+
+    safe_above(SCALE_POS)
+
+    move_cartesian(SCALE_POS, RELEASE_RPY)
+
+    time.sleep(1)
+
+    gripper(GRIPPER_PICK)
+
+    time.sleep(1)
+
+    safe_above(
+        WEIGH_BOAT_POS)
+
+    move_cartesian(
         WEIGH_BOAT_POS,
         rpy=DEFAULT_RPY
     )
-
-    time.sleep(1)
 
     gripper(GRIPPER_RELEASE)
 
     time.sleep(1)
 
-    retract(
-        WEIGH_BOAT_POS,
-        rpy=DEFAULT_RPY
+    print("\n=== WEIGH BOAT STORED ===")
+
+    # =========================================================
+# GRAB TEST TUBES FROM TECAN EVO
+# =========================================================
+
+
+ORIGIN_X, ORIGIN_Y, ORIGIN_Z = TEST_TUBE_1
+
+SPACING_X = 38.1
+SPACING_Y = 25.4
+NUM_COLUMNS = 8
+
+
+def get_tube_position(row: int, tube: int):
+    column_idx = tube - 1
+    row_idx = row - 1
+
+    x = ORIGIN_X + column_idx * SPACING_X
+    y = ORIGIN_Y + row_idx * SPACING_Y
+    z = ORIGIN_Z
+
+    return (x, y, z)
+
+
+def grab_test_tubes():
+
+    print("\n=== GRABBING TEST TUBES FROM TECAN EVO ===")
+
+    time.sleep(1)
+
+    row_input = input("What row do you want to grab? (1 or 2): ")
+    tube_input = input("What test tube do you want to grab? (1 - 8): ")
+
+    TARGET_XYZ = get_tube_position(int(row_input), int(tube_input))
+
+    move_cartesian(
+        TECAN_APPROACH_POS,
+        rpy=TECAN_APPROACH_RPY
     )
 
-    print("\n=== WEIGH BOAT STORED ===")
+    move_cartesian(
+        TARGET_XYZ,
+        rpy=[176.5, 55, 132.1]
+    )
+
+    move_cartesian(
+        [607.1, -673.8, 321.7],
+        rpy=[-177.4, 80.2, 134.3]
+    )
 
 # =========================================================
 # MAIN
@@ -795,6 +873,8 @@ def main():
         pour_into_reactor()
         
         return_weighboat_home()
+
+        grab_test_tubes()
 
         # return home
         print("\n=== RETURNING HOME ===")
