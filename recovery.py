@@ -58,7 +58,7 @@ SCOOP_APPROACH_Z = SCOOP_POS[2] + SCOOP_HEIGHT + 120
 # ORIENTATIONS
 # =========================================================
 
-DEFAULT_RPY = [0.0, 0.0, 0.0]
+DEFAULT_RPY = [180.0, 0.0, 90.0]
 
 SCOOP_RPY = [-178.5, -2.0, 91.4]
 
