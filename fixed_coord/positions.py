@@ -38,11 +38,11 @@ SAFE_Z = 260
 
 INITIAL_POS = [-64.8, -245.5, 301.5]
 
-WEIGH_BOAT_POS = [-63.2, -546.9, -0.7]
+WEIGH_BOAT_POS = [-63.2, -546.9, -0.2]
 
 SCALE_POS = [-600.9, -183, 87.5]
 
-POWDER_POS = [-160.2, -322.4, 130]
+POWDER_POS = [-169.2, -306.5, 130]
 
 SCOOP_POS = [-395.9, -242, 101.3]
 
@@ -73,11 +73,13 @@ SCOOP_APPROACH_Z = SCOOP_POS[2] + SCOOP_HEIGHT + 120
 # ORIENTATIONS
 # =========================================================
 
-DEFAULT_RPY = [0.0, 180.0, 0.0]
+DEFAULT_RPY = [180.0, 0.0, 90.0]
+
+WEIGHBOAT_RPY = [180.0, 0.0, 0.0]
 
 SCOOP_RPY = [-179.9, -0.3, 96.8]
 
-RELEASE_RPY = [180.0, 0.0, -87.9]
+RELEASE_RPY = [180.0, 0.0, 87.9]
 
 POWDER_RELEASE_RPY = [178.2, 2.1, 93]
 
@@ -359,9 +361,15 @@ def pickup_weighboat():
 
     gripper(GRIPPER_RELEASE)
 
-    safe_above(WEIGH_BOAT_POS)
+    safe_above(
+        WEIGH_BOAT_POS, 
+        WEIGHBOAT_RPY
+        )
 
-    descend(WEIGH_BOAT_POS)
+    descend(
+        WEIGH_BOAT_POS, 
+        rpy=WEIGHBOAT_RPY
+        )
 
     gripper(GRIPPER_PICK)
 
@@ -780,7 +788,7 @@ def return_weighboat_home():
 
     move_cartesian(
         WEIGH_BOAT_POS,
-        rpy=DEFAULT_RPY
+        rpy=WEIGHBOAT_RPY
     )
 
     gripper(GRIPPER_RELEASE)
@@ -897,3 +905,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
