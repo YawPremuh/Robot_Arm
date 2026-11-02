@@ -4,7 +4,7 @@ from inference_sdk import InferenceHTTPClient, InferenceConfiguration
 # 2. Connect to your workflow
 client = InferenceHTTPClient(
     api_url="https://serverless.roboflow.com",
-    api_key="DQkgoUzTWeoKojYeOT9X"
+    api_key="_API_KEY"
 ).configure(InferenceConfiguration(
     api_key_transport="header"  # header-based auth (inference v1.5.0+)
 ))
